@@ -106,6 +106,9 @@ EOF
     msg_success "${APP} installed successfully!"
     echo -e "${TAB}${BOLD}Access:${CL} ${BL}http://${server_ip}:${PORT_WEB}${CL}"
     echo -e ""
+
+    # ── Step 8: Register to external catalog (if integration enabled)
+    register_to_catalog
 }
 
 # ==============================================================================

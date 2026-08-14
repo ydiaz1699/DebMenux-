@@ -18,6 +18,7 @@ DEBMENUX_VERSION=$(cat "${DEBMENUX_BASE_DIR}/version.txt" 2>/dev/null || echo "d
 # Source libraries
 source "${DEBMENUX_LIB}/utils.sh"
 source "${DEBMENUX_LIB}/docker.sh"
+source "${DEBMENUX_LIB}/integration.sh"
 
 # Ensure dialog is available
 if ! command_exists dialog; then

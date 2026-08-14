@@ -115,6 +115,9 @@ EOF
     echo -e "${TAB}${DIM}After completing the setup wizard, port ${PORT_WEB} is no longer needed.${CL}"
     echo -e "${TAB}${DIM}Point your devices/router DNS to ${server_ip} to start blocking.${CL}"
     echo -e ""
+
+    # ── Register to external catalog (if integration enabled) ─
+    register_to_catalog
 }
 
 # ==============================================================================

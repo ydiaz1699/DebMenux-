@@ -18,6 +18,33 @@ __DEBMENUX_DOCKER_LOADED=1
 DOCKER_DIR="${DOCKER_DIR:-/docker}"
 
 # ==============================================================================
+# SECTION 1.5: GLOBAL ENVIRONMENT
+# ==============================================================================
+
+# Load shared .env (SERVER_IP, TZ) from the Docker base directory or
+# from the path specified in debmenux.conf via integration.sh.
+# This is called early so service scripts inherit TZ, SERVER_IP, etc.
+_load_docker_global_env() {
+    local env_file="${DOCKER_DIR}/.env"
+    [[ -f "$env_file" ]] || return 0
+
+    while IFS='=' read -r key value; do
+        [[ "$key" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$key" ]] && continue
+        key=$(echo "$key" | xargs)
+        value=$(echo "$value" | xargs)
+        # Only export well-known global vars, don't override existing
+        case "$key" in
+            SERVER_IP|TZ|PUID|PGID)
+                [[ -z "${!key:-}" ]] && export "$key=$value"
+                ;;
+        esac
+    done < "$env_file"
+}
+
+_load_docker_global_env
+
+# ==============================================================================
 # SECTION 2: PREREQUISITES
 # ==============================================================================
 

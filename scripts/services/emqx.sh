@@ -177,6 +177,9 @@ EOF
     echo -e "${TAB}${DIM}Credentials saved in: ${svc_dir}/.env${CL}"
     echo -e "${TAB}${DIM}Anonymous MQTT is DISABLED. Create users in the dashboard.${CL}"
     echo -e ""
+
+    # ── Register to external catalog (if integration enabled) ─
+    register_to_catalog
 }
 
 # ==============================================================================

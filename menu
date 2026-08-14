@@ -40,6 +40,7 @@ fi
 # Source libraries
 source "${DEBMENUX_LIB}/utils.sh"
 source "${DEBMENUX_LIB}/docker.sh"
+source "${DEBMENUX_LIB}/integration.sh"
 
 # ==============================================================================
 # SUBCOMMANDS

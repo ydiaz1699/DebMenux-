@@ -268,15 +268,40 @@ install_files() {
 
     # Create config if not exists
     if [[ ! -f "$CONFIG_FILE" ]]; then
+        # Detect integration config to read DOCKER_DIR
+        local detected_docker_dir="/docker"
+        local integration_conf=""
+
+        for conf_candidate in \
+            "${DEBMENUX_CONF:-}" \
+            "/etc/debmenux/debmenux.conf" \
+            "${HOME}/.config/debmenux/debmenux.conf"; do
+            if [[ -n "$conf_candidate" && -f "$conf_candidate" ]]; then
+                integration_conf="$conf_candidate"
+                break
+            fi
+        done
+
+        if [[ -n "$integration_conf" ]]; then
+            local parsed_docker_dir
+            parsed_docker_dir=$(grep -E "^DOCKER_DIR=" "$integration_conf" 2>/dev/null | head -1 | cut -d= -f2 | xargs)
+            parsed_docker_dir="${parsed_docker_dir/#\~/$HOME}"
+            if [[ -n "$parsed_docker_dir" ]]; then
+                detected_docker_dir="$parsed_docker_dir"
+            fi
+            msg_ok "Integration config detected: ${integration_conf}"
+        fi
+
         cat > "$CONFIG_FILE" <<EOF
 {
     "language": "${DEBMENUX_LANG:-es}",
-    "docker_dir": "/docker",
+    "docker_dir": "${detected_docker_dir}",
     "version": "${VERSION}",
-    "installed_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+    "installed_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+    "integration_conf": "${integration_conf}"
 }
 EOF
-        msg_ok "Configuration created"
+        msg_ok "Configuration created (docker_dir: ${detected_docker_dir})"
     fi
 
     # Cleanup

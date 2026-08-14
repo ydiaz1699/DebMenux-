@@ -21,6 +21,7 @@ CATALOG_FILE="${DEBMENUX_BASE_DIR}/services.json"
 # Source libraries
 source "${DEBMENUX_LIB}/utils.sh"
 source "${DEBMENUX_LIB}/docker.sh"
+source "${DEBMENUX_LIB}/integration.sh"
 
 # ==============================================================================
 # CATEGORY MENU
