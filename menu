@@ -16,7 +16,7 @@
 # Licencia: MIT
 # ==========================================================
 
-set -euo pipefail
+# No usar set -euo pipefail — los source de libs pueden retornar != 0
 
 # ==============================================================================
 # RUTAS Y CONFIGURACIÓN
@@ -37,10 +37,10 @@ else
     export DEBMENUX_LANG="es"
 fi
 
-# Cargar bibliotecas
-source "${DEBMENUX_LIB}/utils.sh"
-source "${DEBMENUX_LIB}/docker.sh"
-source "${DEBMENUX_LIB}/integration.sh"
+# Cargar bibliotecas (con protección contra errores en source)
+source "${DEBMENUX_LIB}/utils.sh" 2>/dev/null || { echo "Error: No se pudo cargar utils.sh"; exit 1; }
+source "${DEBMENUX_LIB}/docker.sh" 2>/dev/null || { echo "Error: No se pudo cargar docker.sh"; exit 1; }
+source "${DEBMENUX_LIB}/integration.sh" 2>/dev/null || true
 
 # ==============================================================================
 # SUBCOMANDOS

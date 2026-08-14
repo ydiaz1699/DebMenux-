@@ -8,7 +8,7 @@
 # Licencia: MIT
 # ==========================================================
 
-set -euo pipefail
+# No usar set -euo pipefail — libs y dialog pueden retornar != 0
 
 DEBMENUX_BASE_DIR="${DEBMENUX_BASE_DIR:-/debmenux}"
 DEBMENUX_SCRIPTS="${DEBMENUX_SCRIPTS:-${DEBMENUX_BASE_DIR}/scripts}"

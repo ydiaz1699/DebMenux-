@@ -39,7 +39,7 @@ _load_docker_global_env() {
                 [[ -z "${!key:-}" ]] && export "$key=$value"
                 ;;
         esac
-    done < "$env_file"
+    done < "$env_file" || true
 }
 
 _load_docker_global_env

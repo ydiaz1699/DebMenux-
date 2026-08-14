@@ -77,7 +77,7 @@ load_integration_config() {
             GLOBAL_ENV)       INTEGRATION_GLOBAL_ENV="$value" ;;
             DOCKER_DIR)       INTEGRATION_DOCKER_DIR="$value" ;;
         esac
-    done < "$DEBMENUX_CONF"
+    done < "$DEBMENUX_CONF" || true
 
     # Validar requisito mínimo
     if [[ -n "$INTEGRATION_DOTFILES_DIR" && -d "$INTEGRATION_DOTFILES_DIR" ]]; then
@@ -124,7 +124,7 @@ load_global_env() {
         if [[ "$key" =~ ^[A-Z_][A-Z0-9_]*$ ]]; then
             export "$key=$value"
         fi
-    done < "$env_file"
+    done < "$env_file" || true
 }
 
 # ==============================================================================
