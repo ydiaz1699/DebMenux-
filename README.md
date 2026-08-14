@@ -193,8 +193,47 @@ MIT — libre para usar, modificar y redistribuir.
 
 ---
 
+## 🔗 Proyectos Relacionados
+
+| Repo | Relación | Descripción |
+|------|----------|-------------|
+| **[nas-dotfiles](https://github.com/ydiaz1699/nas-dotfiles)** | 🤝 Complementario | Framework de administración personal para NAS con shell, CLI Docker (`svc`), agente IA y catálogo de servicios. Funciona **independiente**, pero puede conectarse opcionalmente con DebMenux. |
+
+### ¿Cómo se relacionan?
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  DebMenux (este repo)                                   │
+│  "Qué servicios existen y cómo instalarlos"             │
+│  • Menú TUI interactivo (dialog)                        │
+│  • Scripts de instalación por servicio                  │
+│  • Post-install: USB automount, Docker, tuning          │
+│  • Funciona en CUALQUIER Debian (portable)              │
+└───────────────────────┬─────────────────────────────────┘
+                        │ Integración OPCIONAL
+                        │ (via ~/.config/debmenux/debmenux.conf)
+┌───────────────────────▼─────────────────────────────────┐
+│  nas-dotfiles (repo independiente)                      │
+│  "Cómo está configurado MI servidor"                    │
+│  • Shell personalizado (aliases, prompt, nasfk)         │
+│  • CLI Docker (svc up/down/logs)                        │
+│  • Agente IA (lenguaje natural)                         │
+│  • Catálogo de servicios (fichas + guías)               │
+│  • Funciona SOLO en tu NAS (personal)                   │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Cada repo funciona 100% independiente.** La integración es opcional:
+
+- Si `nas-dotfiles` está instalado y configurado (`~/.config/debmenux/debmenux.conf`), DebMenux auto-registra servicios en su catálogo al instalarlos.
+- Si NO está instalado, DebMenux funciona perfectamente solo.
+- `nas-dotfiles` no depende de DebMenux para nada — tiene su propio CLI (`svc`) y agente.
+
+
+
+---
+
 ## ⭐ Inspirado Por
 
 - [ProxMenux](https://github.com/MacRimi/ProxMenux) — Toolkit menú-driven para Proxmox
 - [Proxmox VE Helper-Scripts](https://github.com/community-scripts/ProxmoxVE) — Instalación de servicios con un comando
-- [nas-dotfiles](https://github.com/ydiaz1699/nas-dotfiles) — Framework de configuración personal para NAS
