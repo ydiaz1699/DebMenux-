@@ -30,7 +30,7 @@ APP_ID="usb-automount"
 CATEGORY="post-install"
 
 # Rutas de templates
-TEMPLATE_DIR="${DEBMENUX_BASE_DIR:-/usr/local/share/debmenux}/templates/usb-automount"
+TEMPLATE_DIR="${DEBMENUX_BASE_DIR:-/debmenux}/templates/usb-automount"
 
 # Destinos de instalación
 SCRIPT_DEST="/usr/local/bin/usb-automount.sh"

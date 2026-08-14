@@ -196,7 +196,7 @@ DEBMENUX_LANG="${DEBMENUX_LANG:-es}"
 declare -A __TRANSLATIONS
 
 load_language() {
-    local lang_file="${DEBMENUX_BASE_DIR:-/usr/local/share/debmenux}/lang/${DEBMENUX_LANG}.json"
+    local lang_file="${DEBMENUX_BASE_DIR:-/debmenux}/lang/${DEBMENUX_LANG}.json"
 
     if [[ ! -f "$lang_file" ]]; then
         return 1

@@ -22,7 +22,7 @@ set -euo pipefail
 # RUTAS Y CONFIGURACIÓN
 # ==============================================================================
 
-export DEBMENUX_BASE_DIR="/usr/local/share/debmenux"
+export DEBMENUX_BASE_DIR="/debmenux"
 export DEBMENUX_SCRIPTS="${DEBMENUX_BASE_DIR}/scripts"
 export DEBMENUX_LIB="${DEBMENUX_BASE_DIR}/lib"
 export DEBMENUX_CONFIG="${DEBMENUX_BASE_DIR}/config.json"

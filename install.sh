@@ -16,7 +16,7 @@ set -euo pipefail
 
 # Configuración
 REPO_URL="https://github.com/ydiaz1699/DebMenux-.git"
-BASE_DIR="/usr/local/share/debmenux"
+BASE_DIR="/debmenux"
 INSTALL_DIR="/usr/local/bin"
 CONFIG_FILE="${BASE_DIR}/config.json"
 MENU_CMD="debmenu"
@@ -228,41 +228,38 @@ confirm_install_docker() {
 # ==============================================================================
 
 install_files() {
-    local temp_dir="/tmp/debmenux-install-$$"
+    msg_info "Clonando repositorio DebMenux en ${BASE_DIR}"
 
-    msg_info "Clonando repositorio DebMenux"
-    git clone --depth 1 "$REPO_URL" "$temp_dir" > /dev/null 2>&1
-    if [[ $? -ne 0 ]]; then
-        msg_error "No se pudo clonar el repositorio"
-        exit 1
+    # Si ya existe, actualizar en vez de clonar
+    if [[ -d "${BASE_DIR}/.git" ]]; then
+        msg_warn "DebMenux ya existe en ${BASE_DIR}, actualizando..."
+        git -C "$BASE_DIR" pull --ff-only > /dev/null 2>&1 || {
+            msg_error "No se pudo actualizar. Resuelve conflictos manualmente."
+            exit 1
+        }
+        msg_ok "Repositorio actualizado (git pull) 📥"
+    else
+        # Clonar directamente en /debmenux
+        if [[ -d "$BASE_DIR" ]]; then
+            msg_warn "Directorio ${BASE_DIR} existe pero no es git. Respaldando..."
+            mv "$BASE_DIR" "${BASE_DIR}.bak.$(date +%s)"
+        fi
+        git clone "$REPO_URL" "$BASE_DIR" > /dev/null 2>&1
+        if [[ $? -ne 0 ]]; then
+            msg_error "No se pudo clonar el repositorio"
+            exit 1
+        fi
+        msg_ok "Repositorio clonado en ${BASE_DIR} 📥"
     fi
-    msg_ok "Repositorio clonado 📥"
-
-    msg_info "Instalando archivos de DebMenux"
-
-    # Crear directorios base
-    mkdir -p "$BASE_DIR"
-    mkdir -p "${BASE_DIR}/scripts"
-    mkdir -p "${BASE_DIR}/lib"
-    mkdir -p "${BASE_DIR}/lang"
-
-    # Copiar archivos principales
-    cp -r "${temp_dir}/lib/"* "${BASE_DIR}/lib/"
-    cp -r "${temp_dir}/scripts/"* "${BASE_DIR}/scripts/"
-    cp -r "${temp_dir}/lang/"* "${BASE_DIR}/lang/" 2>/dev/null || true
-    cp "${temp_dir}/services.json" "${BASE_DIR}/services.json" 2>/dev/null || true
-
-    # Instalar comando del menú
-    cp "${temp_dir}/menu" "${INSTALL_DIR}/${MENU_CMD}"
-    chmod +x "${INSTALL_DIR}/${MENU_CMD}"
 
     # Hacer ejecutables todos los .sh
     find "${BASE_DIR}" -type f -name '*.sh' -exec chmod +x {} +
 
-    # Guardar versión
-    echo "$VERSION" > "${BASE_DIR}/version.txt"
-
-    msg_ok "Archivos de DebMenux instalados 📦"
+    # Crear symlink del comando en /usr/local/bin
+    msg_info "Creando comando '${MENU_CMD}'"
+    ln -sf "${BASE_DIR}/menu" "${INSTALL_DIR}/${MENU_CMD}"
+    chmod +x "${BASE_DIR}/menu"
+    msg_ok "Comando '${MENU_CMD}' disponible globalmente 🔗"
 
     # Crear config si no existe
     if [[ ! -f "$CONFIG_FILE" ]]; then
@@ -301,9 +298,6 @@ install_files() {
 EOF
         msg_ok "Configuración creada (docker_dir: ${detected_docker_dir}) ⚙️"
     fi
-
-    # Limpieza
-    rm -rf "$temp_dir"
 }
 
 # ==============================================================================

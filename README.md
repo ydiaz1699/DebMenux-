@@ -77,7 +77,7 @@ Se agregan más servicios regularmente. Ver [services.json](services.json) para 
 ## 🏗️ Arquitectura
 
 ```
-/usr/local/share/debmenux/       ← Ubicación instalada
+/debmenux/                           ← Repo clonado directo (git clone)
 ├── lib/
 │   ├── utils.sh                 ← Colores, spinners, mensajes con emojis
 │   ├── docker.sh                ← Helpers de ciclo de vida Docker Compose

@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-DEBMENUX_BASE_DIR="${DEBMENUX_BASE_DIR:-/usr/local/share/debmenux}"
+DEBMENUX_BASE_DIR="${DEBMENUX_BASE_DIR:-/debmenux}"
 DEBMENUX_SCRIPTS="${DEBMENUX_SCRIPTS:-${DEBMENUX_BASE_DIR}/scripts}"
 DEBMENUX_LIB="${DEBMENUX_LIB:-${DEBMENUX_BASE_DIR}/lib}"
 DEBMENUX_VERSION=$(cat "${DEBMENUX_BASE_DIR}/version.txt" 2>/dev/null || echo "dev")
