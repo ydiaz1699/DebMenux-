@@ -12,7 +12,7 @@
 # Licencia: MIT
 # ==========================================================
 
-set -euo pipefail
+# No usar set -euo pipefail en instaladores — manejar errores explícitamente
 
 # Configuración
 REPO_URL="https://github.com/ydiaz1699/DebMenux-.git"
@@ -21,6 +21,8 @@ INSTALL_DIR="/usr/local/bin"
 CONFIG_FILE="${BASE_DIR}/config.json"
 MENU_CMD="debmenu"
 VERSION="0.1.0"
+DEBMENUX_LANG="es"
+DEBMENUX_CONF=""
 
 # Colores (inline porque lib/utils.sh aún no está disponible)
 GN="\033[1;92m"
@@ -147,8 +149,9 @@ select_language() {
         echo -e "${TAB}${BL}🌐${CL} Seleccionar idioma:"
         echo -e "${TAB}  1) 🇪🇸 Español (por defecto)"
         echo -e "${TAB}  2) 🇬🇧 English"
-        read -rp "$(echo -e "${TAB}  → ")" choice
-        case "$choice" in
+        local choice=""
+        read -rp "$(echo -e "${TAB}  → ")" choice || true
+        case "${choice:-1}" in
             2) DEBMENUX_LANG="en" ;;
             *) DEBMENUX_LANG="es" ;;
         esac
@@ -163,7 +166,7 @@ select_language() {
 
 install_dependencies() {
     msg_info "Actualizando listas de paquetes"
-    apt-get update -qq > /dev/null 2>&1
+    apt-get update -qq > /dev/null 2>&1 || true
     msg_ok "Listas de paquetes actualizadas 📦"
 
     local deps=("dialog" "curl" "jq" "git")
