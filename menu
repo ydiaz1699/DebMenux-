@@ -1,0 +1,177 @@
+#!/usr/bin/env bash
+# ==========================================================
+# DebMenux - Menu-driven toolkit for Debian homelab/NAS
+# ==========================================================
+# File: menu (main launcher)
+# Description: Entry point for DebMenux. Can be invoked as
+#              a TUI menu or with subcommands for direct use.
+#
+# Usage:
+#   debmenu              → Launch interactive TUI
+#   debmenu install <svc> → Install a service directly
+#   debmenu update <svc>  → Update a service
+#   debmenu list          → List available services
+#   debmenu status        → Show status of installed services
+#
+# License: MIT
+# ==========================================================
+
+set -euo pipefail
+
+# ==============================================================================
+# PATHS & CONFIG
+# ==============================================================================
+
+export DEBMENUX_BASE_DIR="/usr/local/share/debmenux"
+export DEBMENUX_SCRIPTS="${DEBMENUX_BASE_DIR}/scripts"
+export DEBMENUX_LIB="${DEBMENUX_BASE_DIR}/lib"
+export DEBMENUX_CONFIG="${DEBMENUX_BASE_DIR}/config.json"
+export DEBMENUX_VERSION=$(cat "${DEBMENUX_BASE_DIR}/version.txt" 2>/dev/null || echo "dev")
+
+# Load configuration
+if [[ -f "$DEBMENUX_CONFIG" ]]; then
+    export DOCKER_DIR=$(jq -r '.docker_dir // "/docker"' "$DEBMENUX_CONFIG")
+    export DEBMENUX_LANG=$(jq -r '.language // "es"' "$DEBMENUX_CONFIG")
+else
+    export DOCKER_DIR="/docker"
+    export DEBMENUX_LANG="es"
+fi
+
+# Source libraries
+source "${DEBMENUX_LIB}/utils.sh"
+source "${DEBMENUX_LIB}/docker.sh"
+
+# ==============================================================================
+# SUBCOMMANDS
+# ==============================================================================
+
+cmd_install() {
+    local service="${1:-}"
+    if [[ -z "$service" ]]; then
+        msg_error "Usage: debmenu install <service_name>"
+        echo -e "${TAB}Run '${YWB}debmenu list${CL}' to see available services."
+        exit 1
+    fi
+
+    local script="${DEBMENUX_SCRIPTS}/services/${service}.sh"
+    if [[ ! -f "$script" ]]; then
+        msg_error "Service '${service}' not found."
+        echo -e "${TAB}Run '${YWB}debmenu list${CL}' to see available services."
+        exit 1
+    fi
+
+    check_root
+    check_docker || exit 1
+    check_compose || exit 1
+
+    source "$script"
+    install_service
+}
+
+cmd_update() {
+    local service="${1:-}"
+    if [[ -z "$service" ]]; then
+        msg_error "Usage: debmenu update <service_name>"
+        exit 1
+    fi
+
+    local script="${DEBMENUX_SCRIPTS}/services/${service}.sh"
+    if [[ ! -f "$script" ]]; then
+        msg_error "Service '${service}' not found."
+        exit 1
+    fi
+
+    check_root
+    check_docker || exit 1
+
+    source "$script"
+    if declare -f update_service &>/dev/null; then
+        update_service
+    else
+        # Fallback: pull + recreate
+        svc_update "$service"
+    fi
+}
+
+cmd_list() {
+    local catalog="${DEBMENUX_BASE_DIR}/services.json"
+
+    if [[ ! -f "$catalog" ]]; then
+        msg_error "Services catalog not found."
+        exit 1
+    fi
+
+    echo -e "\n${TAB}${BOLD}Available services:${CL}\n"
+    echo -e "${TAB}${BOLD}$(printf '%-18s %-12s %s' 'SERVICE' 'CATEGORY' 'DESCRIPTION')${CL}"
+    msg_separator
+
+    jq -r '.services[] | "\(.id)|\(.category)|\(.description)"' "$catalog" | \
+    while IFS='|' read -r id category description; do
+        printf "${TAB}%-18s ${BL}%-12s${CL} %s\n" "$id" "$category" "$description"
+    done
+
+    echo -e ""
+}
+
+cmd_status() {
+    check_docker || exit 1
+
+    echo -e "\n${TAB}${BOLD}Installed services:${CL}\n"
+    echo -e "${TAB}${BOLD}$(printf '%-18s %s' 'SERVICE' 'STATUS')${CL}"
+    msg_separator
+
+    local found=0
+    for dir in "${DOCKER_DIR}"/*/; do
+        if [[ -f "${dir}compose.yml" ]]; then
+            local name
+            name=$(basename "$dir")
+            local status
+            status=$(svc_status "$name")
+            local color="${GN}"
+            [[ "$status" == *"stopped"* ]] && color="${RD}"
+            [[ "$status" == *"degraded"* ]] && color="${YW}"
+            printf "${TAB}%-18s ${color}%s${CL}\n" "$name" "$status"
+            found=1
+        fi
+    done
+
+    if [[ "$found" -eq 0 ]]; then
+        echo -e "${TAB}${DIM}No services installed in ${DOCKER_DIR}${CL}"
+    fi
+
+    echo -e ""
+}
+
+cmd_menu() {
+    check_root
+    exec bash "${DEBMENUX_SCRIPTS}/menus/main_menu.sh"
+}
+
+# ==============================================================================
+# MAIN DISPATCH
+# ==============================================================================
+
+case "${1:-}" in
+    install)  shift; cmd_install "$@" ;;
+    update)   shift; cmd_update "$@" ;;
+    list)     cmd_list ;;
+    status)   cmd_status ;;
+    help|-h|--help)
+        echo -e "\n${BOLD}DebMenux v${DEBMENUX_VERSION}${CL} — Debian Docker homelab toolkit\n"
+        echo -e "Usage: ${YWB}debmenu${CL} [command] [options]\n"
+        echo -e "Commands:"
+        echo -e "  ${GN}(none)${CL}          Launch interactive TUI menu"
+        echo -e "  ${GN}install${CL} <svc>   Install a service"
+        echo -e "  ${GN}update${CL}  <svc>   Update a service"
+        echo -e "  ${GN}list${CL}            List available services"
+        echo -e "  ${GN}status${CL}          Show installed service status"
+        echo -e "  ${GN}help${CL}            Show this help"
+        echo -e ""
+        ;;
+    "")       cmd_menu ;;
+    *)
+        msg_error "Unknown command: ${1}"
+        echo -e "${TAB}Run '${YWB}debmenu help${CL}' for usage."
+        exit 1
+        ;;
+esac

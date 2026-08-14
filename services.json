@@ -1,0 +1,171 @@
+{
+  "version": "0.1.0",
+  "last_updated": "2026-08-14",
+  "services": [
+    {
+      "id": "adguard",
+      "name": "AdGuard Home",
+      "description": "Network-wide ad & tracker blocker with DNS",
+      "category": "networking",
+      "image": "adguard/adguardhome:latest",
+      "port": 3000,
+      "port_admin": 8080,
+      "source_url": "https://adguard.com/",
+      "github_url": "https://github.com/AdguardTeam/AdGuardHome",
+      "resources": {
+        "cpu": "0.5",
+        "memory": "256M"
+      },
+      "tags": ["dns", "adblock", "privacy", "network"]
+    },
+    {
+      "id": "emqx",
+      "name": "EMQX",
+      "description": "High-performance MQTT broker for IoT",
+      "category": "iot",
+      "image": "emqx/emqx:5.8.3",
+      "port": 18083,
+      "port_mqtt": 1883,
+      "source_url": "https://www.emqx.io/",
+      "github_url": "https://github.com/emqx/emqx",
+      "resources": {
+        "cpu": "1",
+        "memory": "1G"
+      },
+      "networks": ["iot_net"],
+      "tags": ["mqtt", "iot", "broker", "websocket", "home-automation"]
+    },
+    {
+      "id": "filebrowser",
+      "name": "File Browser",
+      "description": "Web-based file manager with sharing",
+      "category": "storage",
+      "image": "filebrowser/filebrowser:latest",
+      "port": 8080,
+      "source_url": "https://filebrowser.org/",
+      "github_url": "https://github.com/filebrowser/filebrowser",
+      "resources": {
+        "cpu": "0.5",
+        "memory": "256M"
+      },
+      "tags": ["files", "web", "sharing", "storage"]
+    },
+    {
+      "id": "portainer",
+      "name": "Portainer CE",
+      "description": "Docker management UI with visual dashboards",
+      "category": "management",
+      "image": "portainer/portainer-ce:latest",
+      "port": 9443,
+      "source_url": "https://www.portainer.io/",
+      "github_url": "https://github.com/portainer/portainer",
+      "resources": {
+        "cpu": "0.5",
+        "memory": "256M"
+      },
+      "tags": ["docker", "management", "gui", "containers"]
+    },
+    {
+      "id": "uptime-kuma",
+      "name": "Uptime Kuma",
+      "description": "Self-hosted monitoring with notifications",
+      "category": "monitoring",
+      "image": "louislam/uptime-kuma:latest",
+      "port": 3001,
+      "source_url": "https://uptime.kuma.pet/",
+      "github_url": "https://github.com/louislam/uptime-kuma",
+      "resources": {
+        "cpu": "0.5",
+        "memory": "256M"
+      },
+      "tags": ["monitoring", "uptime", "alerts", "notifications"]
+    },
+    {
+      "id": "nginx-proxy-manager",
+      "name": "Nginx Proxy Manager",
+      "description": "Reverse proxy with Let's Encrypt SSL",
+      "category": "networking",
+      "image": "jc21/nginx-proxy-manager:latest",
+      "port": 81,
+      "source_url": "https://nginxproxymanager.com/",
+      "github_url": "https://github.com/NginxProxyManager/nginx-proxy-manager",
+      "resources": {
+        "cpu": "0.5",
+        "memory": "256M"
+      },
+      "tags": ["proxy", "ssl", "reverse-proxy", "letsencrypt", "nginx"]
+    },
+    {
+      "id": "esphome",
+      "name": "ESPHome",
+      "description": "Configuration-based firmware for ESP devices",
+      "category": "iot",
+      "image": "ghcr.io/esphome/esphome:latest",
+      "port": 6052,
+      "source_url": "https://esphome.io/",
+      "github_url": "https://github.com/esphome/esphome",
+      "resources": {
+        "cpu": "1",
+        "memory": "1G"
+      },
+      "networks": ["iot_net"],
+      "tags": ["esp32", "esp8266", "iot", "home-automation", "firmware"]
+    },
+    {
+      "id": "jellyfin",
+      "name": "Jellyfin",
+      "description": "Free media system (movies, TV, music)",
+      "category": "media",
+      "image": "jellyfin/jellyfin:latest",
+      "port": 8096,
+      "source_url": "https://jellyfin.org/",
+      "github_url": "https://github.com/jellyfin/jellyfin",
+      "resources": {
+        "cpu": "2",
+        "memory": "2G"
+      },
+      "tags": ["media", "movies", "tv", "music", "streaming"]
+    },
+    {
+      "id": "home-assistant",
+      "name": "Home Assistant",
+      "description": "Home automation platform",
+      "category": "iot",
+      "image": "ghcr.io/home-assistant/home-assistant:stable",
+      "port": 8123,
+      "source_url": "https://www.home-assistant.io/",
+      "github_url": "https://github.com/home-assistant/core",
+      "resources": {
+        "cpu": "2",
+        "memory": "1G"
+      },
+      "networks": ["iot_net"],
+      "tags": ["home-automation", "smart-home", "zigbee", "zwave"]
+    },
+    {
+      "id": "vaultwarden",
+      "name": "Vaultwarden",
+      "description": "Lightweight Bitwarden-compatible password manager",
+      "category": "security",
+      "image": "vaultwarden/server:latest",
+      "port": 8082,
+      "source_url": "https://github.com/dani-garcia/vaultwarden",
+      "github_url": "https://github.com/dani-garcia/vaultwarden",
+      "resources": {
+        "cpu": "0.25",
+        "memory": "128M"
+      },
+      "tags": ["passwords", "security", "bitwarden", "vault"]
+    }
+  ],
+  "categories": [
+    {"id": "networking", "name": "Networking & DNS", "icon": "🌐"},
+    {"id": "iot", "name": "IoT & Home Automation", "icon": "🏠"},
+    {"id": "storage", "name": "Storage & Files", "icon": "💾"},
+    {"id": "management", "name": "Management & Tools", "icon": "🔧"},
+    {"id": "monitoring", "name": "Monitoring & Alerts", "icon": "📊"},
+    {"id": "media", "name": "Media & Streaming", "icon": "🎬"},
+    {"id": "security", "name": "Security & Auth", "icon": "🔒"},
+    {"id": "database", "name": "Databases", "icon": "🗄️"}
+  ]
+}
