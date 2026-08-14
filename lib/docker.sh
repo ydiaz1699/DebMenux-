@@ -1,29 +1,29 @@
 #!/usr/bin/env bash
 # ==========================================================
-# DebMenux - Menu-driven toolkit for Debian homelab/NAS
+# DebMenux — Toolkit interactivo para homelab Debian + Docker
 # ==========================================================
-# File: lib/docker.sh
-# Description: Docker Compose helpers for service management.
-# License: MIT
+# Archivo: lib/docker.sh
+# Descripción: Helpers de Docker Compose para gestión de servicios.
+# Licencia: MIT
 # ==========================================================
 
 [[ -n "${__DEBMENUX_DOCKER_LOADED:-}" ]] && return 0
 __DEBMENUX_DOCKER_LOADED=1
 
 # ==============================================================================
-# SECTION 1: CONFIGURATION
+# SECCIÓN 1: CONFIGURACIÓN
 # ==============================================================================
 
-# Docker compose base directory (user-configurable)
+# Directorio base de Docker Compose (configurable por usuario)
 DOCKER_DIR="${DOCKER_DIR:-/docker}"
 
 # ==============================================================================
-# SECTION 1.5: GLOBAL ENVIRONMENT
+# SECCIÓN 1.5: ENTORNO GLOBAL
 # ==============================================================================
 
-# Load shared .env (SERVER_IP, TZ) from the Docker base directory or
-# from the path specified in debmenux.conf via integration.sh.
-# This is called early so service scripts inherit TZ, SERVER_IP, etc.
+# Cargar .env compartido (SERVER_IP, TZ) del directorio Docker base
+# o desde la ruta especificada en debmenux.conf vía integration.sh.
+# Se llama temprano para que los scripts hereden TZ, SERVER_IP, etc.
 _load_docker_global_env() {
     local env_file="${DOCKER_DIR}/.env"
     [[ -f "$env_file" ]] || return 0
@@ -33,7 +33,7 @@ _load_docker_global_env() {
         [[ -z "$key" ]] && continue
         key=$(echo "$key" | xargs)
         value=$(echo "$value" | xargs)
-        # Only export well-known global vars, don't override existing
+        # Solo exportar vars globales conocidas, no sobreescribir existentes
         case "$key" in
             SERVER_IP|TZ|PUID|PGID)
                 [[ -z "${!key:-}" ]] && export "$key=$value"
@@ -45,155 +45,155 @@ _load_docker_global_env() {
 _load_docker_global_env
 
 # ==============================================================================
-# SECTION 2: PREREQUISITES
+# SECCIÓN 2: PREREQUISITOS
 # ==============================================================================
 
-# Ensure Docker is installed and running
+# Verificar que Docker está instalado y corriendo
 check_docker() {
     if ! command_exists docker; then
-        msg_error "Docker is not installed."
-        msg_warn "Run: menu → Post-Install → Install Docker"
+        msg_error "Docker no está instalado."
+        msg_warn "Ejecuta: debmenu → Post-Instalación → Instalar Docker"
         return 1
     fi
 
     if ! systemctl is-active --quiet docker; then
-        msg_error "Docker daemon is not running."
-        msg_warn "Run: systemctl start docker"
+        msg_error "El demonio Docker no está corriendo."
+        msg_warn "Ejecuta: systemctl start docker"
         return 1
     fi
 
     return 0
 }
 
-# Ensure docker compose (v2 plugin) is available
+# Verificar docker compose (plugin v2)
 check_compose() {
     if ! docker compose version &>/dev/null; then
-        msg_error "Docker Compose plugin is not installed."
-        msg_warn "Install with: apt-get install docker-compose-plugin"
+        msg_error "El plugin Docker Compose no está instalado."
+        msg_warn "Instala con: apt-get install docker-compose-plugin"
         return 1
     fi
     return 0
 }
 
 # ==============================================================================
-# SECTION 3: SERVICE LIFECYCLE
+# SECCIÓN 3: CICLO DE VIDA DE SERVICIOS
 # ==============================================================================
 
-# Start a service
+# Iniciar un servicio
 svc_up() {
     local svc_name="$1"
     local svc_dir="${DOCKER_DIR}/${svc_name}"
 
     if [[ ! -f "${svc_dir}/compose.yml" ]]; then
-        msg_error "No compose.yml found for '${svc_name}'"
+        msg_error "No se encontró compose.yml para '${svc_name}'"
         return 1
     fi
 
-    msg_info "Starting ${svc_name}..."
+    msg_info "Iniciando ${svc_name}..."
     docker compose -f "${svc_dir}/compose.yml" up -d 2>&1 | tail -5
     if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
-        msg_ok "${svc_name} started"
+        msg_ok "${svc_name} iniciado 🟢"
     else
-        msg_error "Failed to start ${svc_name}"
+        msg_error "Error al iniciar ${svc_name}"
         return 1
     fi
 }
 
-# Stop a service
+# Detener un servicio
 svc_down() {
     local svc_name="$1"
     local svc_dir="${DOCKER_DIR}/${svc_name}"
 
     if [[ ! -f "${svc_dir}/compose.yml" ]]; then
-        msg_error "No compose.yml found for '${svc_name}'"
+        msg_error "No se encontró compose.yml para '${svc_name}'"
         return 1
     fi
 
-    msg_info "Stopping ${svc_name}..."
+    msg_info "Deteniendo ${svc_name}..."
     docker compose -f "${svc_dir}/compose.yml" down 2>&1 | tail -5
     if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
-        msg_ok "${svc_name} stopped"
+        msg_ok "${svc_name} detenido 🔴"
     else
-        msg_error "Failed to stop ${svc_name}"
+        msg_error "Error al detener ${svc_name}"
         return 1
     fi
 }
 
-# Restart a service
+# Reiniciar un servicio
 svc_restart() {
     local svc_name="$1"
     local svc_dir="${DOCKER_DIR}/${svc_name}"
 
     if [[ ! -f "${svc_dir}/compose.yml" ]]; then
-        msg_error "No compose.yml found for '${svc_name}'"
+        msg_error "No se encontró compose.yml para '${svc_name}'"
         return 1
     fi
 
-    msg_info "Restarting ${svc_name}..."
+    msg_info "Reiniciando ${svc_name}..."
     docker compose -f "${svc_dir}/compose.yml" restart 2>&1 | tail -5
     if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
-        msg_ok "${svc_name} restarted"
+        msg_ok "${svc_name} reiniciado 🔄"
     else
-        msg_error "Failed to restart ${svc_name}"
+        msg_error "Error al reiniciar ${svc_name}"
         return 1
     fi
 }
 
-# View logs
+# Ver logs
 svc_logs() {
     local svc_name="$1"
     local lines="${2:-50}"
     local svc_dir="${DOCKER_DIR}/${svc_name}"
 
     if [[ ! -f "${svc_dir}/compose.yml" ]]; then
-        msg_error "No compose.yml found for '${svc_name}'"
+        msg_error "No se encontró compose.yml para '${svc_name}'"
         return 1
     fi
 
     docker compose -f "${svc_dir}/compose.yml" logs --tail="$lines"
 }
 
-# Pull latest images
+# Descargar imágenes más recientes
 svc_pull() {
     local svc_name="$1"
     local svc_dir="${DOCKER_DIR}/${svc_name}"
 
     if [[ ! -f "${svc_dir}/compose.yml" ]]; then
-        msg_error "No compose.yml found for '${svc_name}'"
+        msg_error "No se encontró compose.yml para '${svc_name}'"
         return 1
     fi
 
-    msg_info "Pulling images for ${svc_name}..."
+    msg_info "Descargando imágenes de ${svc_name}..."
     docker compose -f "${svc_dir}/compose.yml" pull 2>&1 | tail -5
-    msg_ok "Images pulled for ${svc_name}"
+    msg_ok "Imágenes descargadas para ${svc_name} 📥"
 }
 
-# Update a service (pull + recreate)
+# Actualizar un servicio (pull + recrear)
 svc_update() {
     local svc_name="$1"
     local svc_dir="${DOCKER_DIR}/${svc_name}"
 
     if [[ ! -f "${svc_dir}/compose.yml" ]]; then
-        msg_error "No compose.yml found for '${svc_name}'"
+        msg_error "No se encontró compose.yml para '${svc_name}'"
         return 1
     fi
 
-    msg_info "Updating ${svc_name}..."
+    msg_info "Actualizando ${svc_name}..."
     docker compose -f "${svc_dir}/compose.yml" pull 2>&1 | tail -3
     docker compose -f "${svc_dir}/compose.yml" up -d --force-recreate 2>&1 | tail -3
     if [[ ${PIPESTATUS[0]} -eq 0 ]]; then
-        msg_ok "${svc_name} updated"
+        msg_ok "${svc_name} actualizado 🆙"
     else
-        msg_error "Failed to update ${svc_name}"
+        msg_error "Error al actualizar ${svc_name}"
         return 1
     fi
 }
 
 # ==============================================================================
-# SECTION 4: SERVICE DISCOVERY
+# SECCIÓN 4: DESCUBRIMIENTO DE SERVICIOS
 # ==============================================================================
 
-# List all installed services (directories with compose.yml)
+# Listar todos los servicios instalados (directorios con compose.yml)
 list_services() {
     local services=()
     for dir in "${DOCKER_DIR}"/*/; do
@@ -204,7 +204,7 @@ list_services() {
     printf '%s\n' "${services[@]}"
 }
 
-# Check if a service is running
+# Verificar si un servicio está corriendo
 svc_is_running() {
     local svc_name="$1"
     local svc_dir="${DOCKER_DIR}/${svc_name}"
@@ -218,13 +218,13 @@ svc_is_running() {
     [[ "$running" -gt 0 ]]
 }
 
-# Get service status (running containers / total containers)
+# Obtener estado del servicio (contenedores corriendo / total)
 svc_status() {
     local svc_name="$1"
     local svc_dir="${DOCKER_DIR}/${svc_name}"
 
     if [[ ! -f "${svc_dir}/compose.yml" ]]; then
-        echo "not installed"
+        echo "no instalado"
         return
     fi
 
@@ -233,53 +233,53 @@ svc_status() {
     total=$(docker compose -f "${svc_dir}/compose.yml" ps -q 2>/dev/null | wc -l)
 
     if [[ "$total" -eq 0 ]]; then
-        echo "stopped"
+        echo "🔴 detenido"
     elif [[ "$running" -eq "$total" ]]; then
-        echo "running (${running}/${total})"
+        echo "🟢 corriendo (${running}/${total})"
     else
-        echo "degraded (${running}/${total})"
+        echo "🟡 degradado (${running}/${total})"
     fi
 }
 
 # ==============================================================================
-# SECTION 5: NETWORK HELPERS
+# SECCIÓN 5: HELPERS DE RED
 # ==============================================================================
 
-# Create a docker network if it doesn't exist
+# Crear una red Docker si no existe
 ensure_network() {
     local net_name="$1"
     local subnet="${2:-}"
     local driver="${3:-bridge}"
 
     if ! docker network inspect "$net_name" &>/dev/null; then
-        msg_info "Creating network '${net_name}'..."
+        msg_info "Creando red '${net_name}'..."
         local cmd="docker network create --driver ${driver}"
         [[ -n "$subnet" ]] && cmd+=" --subnet=${subnet}"
         cmd+=" ${net_name}"
         eval "$cmd" >/dev/null 2>&1
-        msg_ok "Network '${net_name}' created"
+        msg_ok "Red '${net_name}' creada 🌐"
     fi
 }
 
 # ==============================================================================
-# SECTION 6: SECURITY DEFAULTS
+# SECCIÓN 6: SEGURIDAD POR DEFECTO
 # ==============================================================================
 
-# Generate a random password
+# Generar contraseña aleatoria
 generate_password() {
     local length="${1:-24}"
     openssl rand -base64 "$length" | tr -d '/+=' | head -c "$length"
 }
 
-# Generate a hex token
+# Generar token hexadecimal
 generate_token() {
     local length="${1:-32}"
     openssl rand -hex "$length"
 }
 
-# Set restrictive permissions on .env file
+# Establecer permisos restrictivos en archivo .env
 secure_env() {
     local env_file="$1"
     chmod 600 "$env_file"
-    msg_ok "Secured ${env_file} (600)"
+    msg_ok "Permisos asegurados: ${env_file} (600) 🔒"
 }

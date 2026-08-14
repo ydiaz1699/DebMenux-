@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 # ==========================================================
-# DebMenux - Menu-driven toolkit for Debian homelab/NAS
+# DebMenux — Toolkit interactivo para homelab Debian + Docker
 # ==========================================================
-# File: scripts/menus/services_menu.sh
-# Description: Interactive menu to browse and install services
-#              from the service catalog.
-# License: MIT
+# Archivo: scripts/menus/services_menu.sh
+# Descripción: Menú interactivo para explorar e instalar
+#              servicios desde el catálogo.
+# Licencia: MIT
 # ==========================================================
 
 set -euo pipefail
 
-# Paths
 DEBMENUX_BASE_DIR="${DEBMENUX_BASE_DIR:-/usr/local/share/debmenux}"
 DEBMENUX_SCRIPTS="${DEBMENUX_SCRIPTS:-${DEBMENUX_BASE_DIR}/scripts}"
 DEBMENUX_LIB="${DEBMENUX_LIB:-${DEBMENUX_BASE_DIR}/lib}"
@@ -18,23 +17,21 @@ DEBMENUX_VERSION=$(cat "${DEBMENUX_BASE_DIR}/version.txt" 2>/dev/null || echo "d
 
 CATALOG_FILE="${DEBMENUX_BASE_DIR}/services.json"
 
-# Source libraries
 source "${DEBMENUX_LIB}/utils.sh"
 source "${DEBMENUX_LIB}/docker.sh"
 source "${DEBMENUX_LIB}/integration.sh"
 
 # ==============================================================================
-# CATEGORY MENU
+# MENÚ DE CATEGORÍAS
 # ==============================================================================
 
 show_categories_menu() {
     if [[ ! -f "$CATALOG_FILE" ]]; then
-        dialog --backtitle "DebMenux" --title " Error " \
-            --msgbox "\nServices catalog not found:\n${CATALOG_FILE}" 9 50
+        dialog --backtitle "DebMenux" --title " ❌ Error " \
+            --msgbox "\nCatálogo de servicios no encontrado:\n${CATALOG_FILE}" 9 50
         exec bash "${DEBMENUX_SCRIPTS}/menus/main_menu.sh"
     fi
 
-    # Extract unique categories
     local categories
     categories=$(jq -r '.services[].category' "$CATALOG_FILE" | sort -u)
 
@@ -46,21 +43,24 @@ show_categories_menu() {
         [[ -z "$cat" ]] && continue
         local count
         count=$(jq -r --arg c "$cat" '[.services[] | select(.category == $c)] | length' "$CATALOG_FILE")
-        menu_items+=("$i" "${cat} (${count} services)")
+        # Obtener emoji de la categoría
+        local emoji
+        emoji=$(jq -r --arg c "$cat" '.categories[] | select(.id == $c) | .icon // "📦"' "$CATALOG_FILE")
+        menu_items+=("$i" "${emoji} ${cat} (${count} servicios)")
         category_map["$i"]="$cat"
         ((i++))
     done <<< "$categories"
 
-    menu_items+=("A" "Show ALL services")
-    menu_items+=("0" "Back to Main Menu")
+    menu_items+=("A" "📋 Mostrar TODOS los servicios")
+    menu_items+=("0" "↩️  Volver al Menú Principal")
 
     local TEMP_FILE
     TEMP_FILE=$(mktemp)
 
     dialog --clear \
-        --backtitle "DebMenux v${DEBMENUX_VERSION}" \
-        --title " Install a Service " \
-        --menu "\nSelect a category:" 20 55 12 \
+        --backtitle "🐧 DebMenux v${DEBMENUX_VERSION}" \
+        --title " 📦 Instalar un Servicio " \
+        --menu "\nSelecciona una categoría:" 20 55 12 \
         "${menu_items[@]}" 2>"$TEMP_FILE"
 
     local exit_status=$?
@@ -78,7 +78,7 @@ show_categories_menu() {
 }
 
 # ==============================================================================
-# SERVICES LIST
+# LISTA DE SERVICIOS
 # ==============================================================================
 
 show_services_list() {
@@ -101,24 +101,24 @@ show_services_list() {
     done < <(jq -r "${jq_filter} | \"\(.id)|\(.description)\"" "$CATALOG_FILE")
 
     if [[ ${#menu_items[@]} -eq 0 ]]; then
-        dialog --backtitle "DebMenux" --title " Services " \
-            --msgbox "\nNo services found in this category." 8 45
+        dialog --backtitle "DebMenux" --title " 📦 Servicios " \
+            --msgbox "\n❌ No se encontraron servicios en esta categoría." 8 45
         show_categories_menu
         return
     fi
 
-    menu_items+=("0" "Back")
+    menu_items+=("0" "↩️  Volver")
 
     local TEMP_FILE
     TEMP_FILE=$(mktemp)
 
-    local title="Services"
-    [[ -n "$filter_category" ]] && title="Services: ${filter_category}"
+    local title="📦 Servicios"
+    [[ -n "$filter_category" ]] && title="📦 Servicios: ${filter_category}"
 
     dialog --clear \
-        --backtitle "DebMenux v${DEBMENUX_VERSION}" \
+        --backtitle "🐧 DebMenux v${DEBMENUX_VERSION}" \
         --title " ${title} " \
-        --menu "\nSelect a service to install:" 22 65 14 \
+        --menu "\nSelecciona un servicio para instalar:" 22 65 14 \
         "${menu_items[@]}" 2>"$TEMP_FILE"
 
     local exit_status=$?
@@ -137,13 +137,12 @@ show_services_list() {
 }
 
 # ==============================================================================
-# CONFIRM & INSTALL
+# CONFIRMAR E INSTALAR
 # ==============================================================================
 
 confirm_and_install() {
     local service_id="$1"
 
-    # Get service details from catalog
     local name description category port image
     name=$(jq -r --arg id "$service_id" '.services[] | select(.id == $id) | .name' "$CATALOG_FILE")
     description=$(jq -r --arg id "$service_id" '.services[] | select(.id == $id) | .description' "$CATALOG_FILE")
@@ -152,16 +151,16 @@ confirm_and_install() {
     image=$(jq -r --arg id "$service_id" '.services[] | select(.id == $id) | .image // "N/A"' "$CATALOG_FILE")
 
     local info=""
-    info+="Name:        ${name}\n"
-    info+="Description: ${description}\n"
-    info+="Category:    ${category}\n"
-    info+="Image:       ${image}\n"
-    info+="Port:        ${port}\n"
-    info+="Install to:  ${DOCKER_DIR}/${service_id}/\n"
+    info+="📦 Nombre:       ${name}\n"
+    info+="📝 Descripción:  ${description}\n"
+    info+="🏷️  Categoría:    ${category}\n"
+    info+="🐳 Imagen:       ${image}\n"
+    info+="🌐 Puerto:       ${port}\n"
+    info+="📁 Instalar en:  ${DOCKER_DIR}/${service_id}/\n"
 
     dialog --backtitle "DebMenux" \
-        --title " Install ${name}? " \
-        --yesno "${info}\n\nProceed with installation?" 16 60
+        --title " 🚀 ¿Instalar ${name}? " \
+        --yesno "${info}\n\n¿Proceder con la instalación?" 16 60
 
     local exit_status=$?
     if [[ $exit_status -ne 0 ]]; then
@@ -169,47 +168,45 @@ confirm_and_install() {
         return
     fi
 
-    # Execute installation
+    # Ejecutar instalación
     clear
-    msg_title "Installing ${name}"
+    msg_title "🚀 Instalando ${name}"
 
     local script_file="${DEBMENUX_SCRIPTS}/services/${service_id}.sh"
 
     if [[ ! -f "$script_file" ]]; then
-        msg_error "Install script not found: ${script_file}"
-        echo -e "\n${TAB}Press ENTER to continue..."
+        msg_error "Script de instalación no encontrado: ${script_file}"
+        echo -e "\n${TAB}Presiona ENTER para continuar..."
         read -r
         show_categories_menu
         return
     fi
 
-    # Check Docker
     if ! check_docker; then
-        echo -e "\n${TAB}Press ENTER to continue..."
+        echo -e "\n${TAB}Presiona ENTER para continuar..."
         read -r
         show_categories_menu
         return
     fi
 
     if ! check_compose; then
-        echo -e "\n${TAB}Press ENTER to continue..."
+        echo -e "\n${TAB}Presiona ENTER para continuar..."
         read -r
         show_categories_menu
         return
     fi
 
-    # Run the install script
     source "$script_file"
     install_service
 
-    echo -e "\n${TAB}Press ENTER to continue..."
+    echo -e "\n${TAB}Presiona ENTER para continuar..."
     read -r
 
     show_categories_menu
 }
 
 # ==============================================================================
-# ENTRY POINT
+# PUNTO DE ENTRADA
 # ==============================================================================
 
 show_categories_menu

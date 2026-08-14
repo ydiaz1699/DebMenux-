@@ -1,193 +1,200 @@
 # 🐧 DebMenux
 
-**Menu-driven toolkit for Debian Docker homelab/NAS**
+**Toolkit interactivo con menú para homelab Debian + Docker**
 
-An interactive CLI toolkit inspired by [ProxMenux](https://github.com/MacRimi/ProxMenux) and [Proxmox VE Helper-Scripts](https://github.com/community-scripts/ProxmoxVE) — but designed for bare Debian servers running Docker.
+Un toolkit CLI interactivo inspirado en [ProxMenux](https://github.com/MacRimi/ProxMenux) y [Proxmox VE Helper-Scripts](https://github.com/community-scripts/ProxmoxVE) — pero diseñado para servidores Debian corriendo Docker.
 
-Install services with one command, manage containers from a beautiful TUI, and keep your homelab organized.
+Instala servicios con un solo comando, gestiona contenedores desde un TUI bonito, y mantén tu homelab organizado.
 
 ---
 
-## 📌 Installation
+## 📌 Instalación
 
 ```bash
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/ydiaz1699/DebMenux-/main/install.sh)"
 ```
 
-> ⚠️ Always review scripts before running them: [install.sh](install.sh)
+> ⚠️ Siempre revisa los scripts antes de ejecutarlos: [install.sh](install.sh)
 
 ---
 
-## 📌 How to Use
+## 📌 Cómo Usar
 
-### Interactive Menu (TUI)
+### Menú Interactivo (TUI)
 
 ```bash
 debmenu
 ```
 
-Then navigate with arrow keys through:
-- **Install a Service** — Browse catalog by category, one-click install
-- **Manage Services** — Start, stop, restart, view logs
-- **Update Services** — Pull latest images and recreate containers
-- **System Info** — CPU, RAM, disk, Docker stats at a glance
-- **Settings** — Language, Docker directory, updates
+Navega con las flechas:
+- **📦 Instalar un Servicio** — Explorar catálogo por categoría, instalar con un clic
+- **🔧 Gestionar Servicios** — Iniciar, detener, reiniciar, ver logs
+- **🆙 Actualizar Servicios** — Descargar imágenes y recrear contenedores
+- **📊 Info del Sistema** — CPU, RAM, disco, estadísticas Docker
+- **🔩 Configuración** — Idioma, directorio Docker, actualizaciones
 
-### Direct Commands (no TUI)
+### Comandos Directos (sin TUI)
 
 ```bash
-# Install a service
+# Instalar un servicio
 debmenu install adguard
 debmenu install emqx
 
-# Update a service
+# Actualizar un servicio
 debmenu update adguard
 
-# List available services
+# Listar servicios disponibles
 debmenu list
 
-# Check status of installed services
+# Ver estado de servicios instalados
 debmenu status
 
-# Show help
+# Mostrar ayuda
 debmenu help
 ```
 
 ---
 
-## 📦 Available Services
+## 📦 Servicios Disponibles
 
-| Service | Category | Description |
-|---------|----------|-------------|
-| **AdGuard Home** | Networking | DNS-level ad/tracker blocker |
-| **EMQX** | IoT | High-performance MQTT broker |
-| **File Browser** | Storage | Web-based file manager |
-| **Portainer CE** | Management | Docker visual management UI |
-| **Uptime Kuma** | Monitoring | Self-hosted uptime monitoring |
-| **Nginx Proxy Manager** | Networking | Reverse proxy with SSL |
-| **ESPHome** | IoT | ESP device firmware builder |
-| **Jellyfin** | Media | Free media streaming system |
-| **Home Assistant** | IoT | Home automation platform |
-| **Vaultwarden** | Security | Bitwarden-compatible passwords |
+| Servicio | Categoría | Descripción |
+|----------|-----------|-------------|
+| **AdGuard Home** | 🌐 Red | Bloqueador de anuncios/rastreadores DNS |
+| **EMQX** | 🏠 IoT | Broker MQTT de alto rendimiento |
+| **File Browser** | 💾 Almacenamiento | Gestor de archivos web |
+| **Portainer CE** | 🔧 Gestión | UI visual para Docker |
+| **Uptime Kuma** | 📊 Monitoreo | Monitoreo de uptime |
+| **Nginx Proxy Manager** | 🌐 Red | Proxy reverso con SSL |
+| **ESPHome** | 🏠 IoT | Firmware para dispositivos ESP |
+| **Jellyfin** | 🎬 Medios | Sistema de streaming libre |
+| **Home Assistant** | 🏠 IoT | Automatización del hogar |
+| **Vaultwarden** | 🔒 Seguridad | Gestor de contraseñas |
 
-More services are added regularly. See [services.json](services.json) for the full catalog.
+Se agregan más servicios regularmente. Ver [services.json](services.json) para el catálogo completo.
 
 ---
 
-## 🏗️ Architecture
+## 🏗️ Arquitectura
 
 ```
-/usr/local/share/debmenux/      ← Installed location
+/usr/local/share/debmenux/       ← Ubicación instalada
 ├── lib/
-│   ├── utils.sh                ← Colors, spinners, messages, translations
-│   └── docker.sh              ← Docker compose lifecycle helpers
+│   ├── utils.sh                 ← Colores, spinners, mensajes con emojis
+│   ├── docker.sh                ← Helpers de ciclo de vida Docker Compose
+│   └── integration.sh           ← Integración con repos externos (opcional)
 ├── scripts/
 │   ├── menus/
-│   │   ├── main_menu.sh       ← TUI main menu (dialog)
-│   │   └── services_menu.sh   ← Category browser + install flow
-│   ├── services/               ← One script per service
-│   │   ├── _template.sh       ← Template for new services
+│   │   ├── main_menu.sh         ← Menú TUI principal (dialog)
+│   │   └── services_menu.sh     ← Explorador de categorías + instalación
+│   ├── services/                ← Un script por servicio
+│   │   ├── _template.sh         ← Plantilla para nuevos servicios
 │   │   ├── adguard.sh
 │   │   ├── emqx.sh
 │   │   └── ...
-│   ├── post-install/           ← Host optimization scripts
-│   └── utilities/              ← System utilities
-├── lang/                       ← Translation files (es, en)
-├── services.json               ← Service catalog
-├── config.json                 ← User configuration
+│   ├── post-install/            ← Scripts de optimización del host
+│   └── utilities/               ← Utilidades del sistema
+├── lang/                        ← Archivos de traducción (es, en)
+├── services.json                ← Catálogo de servicios
+├── config.json                  ← Configuración del usuario
 └── version.txt
 ```
 
 ---
 
-## 🔧 Dependencies
+## 🔗 Integración con nas-dotfiles
 
-Installed automatically during setup:
+DebMenux puede conectarse opcionalmente con tu repositorio de configuración personal:
 
-| Package | Purpose |
-|---------|---------|
-| `dialog` | Interactive terminal menus |
-| `curl` | Downloads and connectivity |
-| `jq` | JSON processing |
-| `git` | Repository cloning and updates |
-| `docker` | Container runtime (optional install) |
+```bash
+# Activar integración (una sola vez)
+mkdir -p ~/.config/debmenux
+cp ~/nas-dotfiles/.config/debmenux.conf.example ~/.config/debmenux/debmenux.conf
+```
+
+Con la integración habilitada:
+- 📋 Cada servicio instalado se registra automáticamente en el catálogo
+- 🌐 Las variables globales (SERVER_IP, TZ) se heredan del .env compartido
+- 📁 Las rutas se leen de la configuración (sin hardcodear)
 
 ---
 
-## 🛠️ Creating a New Service Script
+## 🔧 Dependencias
 
-1. Copy the template:
+Se instalan automáticamente durante la configuración:
+
+| Paquete | Propósito |
+|---------|-----------|
+| `dialog` | Menús interactivos en terminal |
+| `curl` | Descargas y conectividad |
+| `jq` | Procesamiento JSON |
+| `git` | Clonación y actualizaciones |
+| `docker` | Runtime de contenedores (instalación opcional) |
+
+---
+
+## 🛠️ Crear un Nuevo Script de Servicio
+
+1. Copiar la plantilla:
    ```bash
-   cp scripts/services/_template.sh scripts/services/myservice.sh
+   cp scripts/services/_template.sh scripts/services/miservicio.sh
    ```
 
-2. Edit the metadata and `install_service()` function
+2. Editar los metadatos y la función `install_service()`
 
-3. Add the entry to `services.json`
+3. Agregar la entrada a `services.json`
 
-4. Test:
+4. Probar:
    ```bash
-   debmenu install myservice
+   debmenu install miservicio
    ```
 
-See [scripts/services/_template.sh](scripts/services/_template.sh) for the full template with inline documentation.
+Ver [scripts/services/_template.sh](scripts/services/_template.sh) para la plantilla completa.
 
 ---
 
-## 🌍 Languages
+## 📋 Requisitos
 
-DebMenux supports multiple languages via JSON translation files:
-
-- 🇪🇸 Spanish (default)
-- 🇬🇧 English
-
-Change language: `debmenu` → Settings → Change Language
-
----
-
-## 📋 Requirements
-
-| Component | Details |
-|-----------|---------|
-| **OS** | Debian 12+ (or derivatives: Ubuntu, Proxmox LXC) |
-| **Access** | Root/sudo |
-| **Docker** | Installed automatically if missing |
-| **Network** | Internet required for install and image pulls |
+| Componente | Detalles |
+|-----------|----------|
+| **SO** | Debian 12+ (o derivados: Ubuntu, Proxmox LXC) |
+| **Acceso** | Root/sudo |
+| **Docker** | Se instala automáticamente si falta |
+| **Red** | Internet requerido para instalación y pull de imágenes |
 
 ---
 
 ## 🗺️ Roadmap
 
-- [ ] Post-install host optimization (swap, sysctl, zram)
-- [ ] Network management (macvlan, bridges, DNS config)
-- [ ] Storage management (SMART, mount, fstab)
-- [ ] Backup & restore (borg, restic, pg_dump)
-- [ ] Web monitor dashboard
-- [ ] More service scripts (50+ planned)
-- [ ] Auto-update mechanism
+- [ ] Optimización post-instalación del host (swap, sysctl, zram)
+- [ ] Gestión de red (macvlan, bridges, DNS)
+- [ ] Gestión de almacenamiento (SMART, mount, fstab)
+- [ ] Backup y restauración (borg, restic, pg_dump)
+- [ ] Dashboard web de monitoreo
+- [ ] Más scripts de servicios (50+ planeados)
+- [ ] Mecanismo de auto-actualización
 
 ---
 
-## 🤝 Contributing
+## 🤝 Contribuir
 
-Contributions welcome! To add a new service:
+¡Las contribuciones son bienvenidas! Para agregar un nuevo servicio:
 
-1. Fork the repo
-2. Copy `scripts/services/_template.sh` → `scripts/services/yourservice.sh`
-3. Add entry to `services.json`
-4. Test locally with `debmenu install yourservice`
-5. Open a PR
-
----
-
-## 📄 License
-
-MIT — free to use, modify, and redistribute.
+1. Fork del repo
+2. Copia `scripts/services/_template.sh` → `scripts/services/tuservicio.sh`
+3. Agrega entrada a `services.json`
+4. Prueba localmente con `debmenu install tuservicio`
+5. Abre un PR
 
 ---
 
-## ⭐ Inspired By
+## 📄 Licencia
 
-- [ProxMenux](https://github.com/MacRimi/ProxMenux) — Menu-driven Proxmox toolkit
-- [Proxmox VE Helper-Scripts](https://github.com/community-scripts/ProxmoxVE) — One-command service installs
-- [nas-dotfiles](https://github.com/ydiaz1699/nas-dotfiles) — Personal NAS configuration framework
+MIT — libre para usar, modificar y redistribuir.
+
+---
+
+## ⭐ Inspirado Por
+
+- [ProxMenux](https://github.com/MacRimi/ProxMenux) — Toolkit menú-driven para Proxmox
+- [Proxmox VE Helper-Scripts](https://github.com/community-scripts/ProxmoxVE) — Instalación de servicios con un comando
+- [nas-dotfiles](https://github.com/ydiaz1699/nas-dotfiles) — Framework de configuración personal para NAS

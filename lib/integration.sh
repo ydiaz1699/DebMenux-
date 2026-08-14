@@ -1,46 +1,45 @@
 #!/usr/bin/env bash
 # ==========================================================
-# DebMenux - Menu-driven toolkit for Debian homelab/NAS
+# DebMenux — Toolkit interactivo para homelab Debian + Docker
 # ==========================================================
-# File: lib/integration.sh
-# Description: Integration layer between DebMenux and external
-#              configuration repos (e.g. nas-dotfiles).
+# Archivo: lib/integration.sh
+# Descripción: Capa de integración entre DebMenux y repos
+#              de configuración externos (ej. nas-dotfiles).
 #
-# This module is OPTIONAL — DebMenux works fully standalone.
-# When a debmenux.conf is found, it enables:
-#   - Auto-registration of installed services to the catalog
-#   - Loading global .env variables (SERVER_IP, TZ)
-#   - Reading user-specific paths (not hardcoded)
+# Este módulo es OPCIONAL — DebMenux funciona standalone.
+# Cuando se encuentra debmenux.conf, habilita:
+#   - Auto-registro de servicios instalados al catálogo
+#   - Carga de variables globales .env (SERVER_IP, TZ)
+#   - Lectura de rutas configurables por usuario (sin hardcodear)
 #
-# Detection order for debmenux.conf:
-#   1. $DEBMENUX_CONF (explicit env var)
-#   2. /etc/debmenux/debmenux.conf (system-wide)
-#   3. $HOME/.config/debmenux/debmenux.conf (user-level)
-#   4. Auto-discovery: find a repo with .debmenux-integration marker
+# Orden de detección de debmenux.conf:
+#   1. $DEBMENUX_CONF (variable de entorno explícita)
+#   2. /etc/debmenux/debmenux.conf (a nivel de sistema)
+#   3. $HOME/.config/debmenux/debmenux.conf (a nivel de usuario)
 #
-# License: MIT
+# Licencia: MIT
 # ==========================================================
 
 [[ -n "${__DEBMENUX_INTEGRATION_LOADED:-}" ]] && return 0
 __DEBMENUX_INTEGRATION_LOADED=1
 
 # ==============================================================================
-# SECTION 1: CONFIGURATION DISCOVERY
+# SECCIÓN 1: DESCUBRIMIENTO DE CONFIGURACIÓN
 # ==============================================================================
 
-# Path to the integration config (set after detection)
+# Ruta al config de integración (se establece tras detección)
 DEBMENUX_CONF="${DEBMENUX_CONF:-}"
 
-# Detected paths (populated by load_integration_config)
+# Rutas detectadas (se llenan con load_integration_config)
 INTEGRATION_ENABLED=false
 INTEGRATION_DOTFILES_DIR=""
 INTEGRATION_CATALOG_DIR=""
 INTEGRATION_GLOBAL_ENV=""
 INTEGRATION_DOCKER_DIR=""
 
-# Locate and load debmenux.conf
+# Localizar y cargar debmenux.conf
 load_integration_config() {
-    # Search order
+    # Orden de búsqueda
     local search_paths=(
         "${DEBMENUX_CONF}"
         "/etc/debmenux/debmenux.conf"
@@ -54,23 +53,21 @@ load_integration_config() {
         fi
     done
 
-    # Not found — integration disabled (this is fine, DebMenux works standalone)
+    # No encontrado — integración deshabilitada (DebMenux funciona igual)
     if [[ -z "$DEBMENUX_CONF" || ! -f "$DEBMENUX_CONF" ]]; then
         INTEGRATION_ENABLED=false
         return 0
     fi
 
-    # Parse the config file (simple KEY=VALUE, no eval for safety)
+    # Parsear archivo (KEY=VALUE simple, sin eval por seguridad)
     while IFS='=' read -r key value; do
-        # Skip comments and empty lines
         [[ "$key" =~ ^[[:space:]]*# ]] && continue
         [[ -z "$key" ]] && continue
 
-        # Trim whitespace
         key=$(echo "$key" | xargs)
         value=$(echo "$value" | xargs)
 
-        # Expand ~ and $HOME in value
+        # Expandir ~ y $HOME en valor
         value="${value/#\~/$HOME}"
         value="${value/\$HOME/$HOME}"
 
@@ -82,21 +79,21 @@ load_integration_config() {
         esac
     done < "$DEBMENUX_CONF"
 
-    # Validate minimum requirement
+    # Validar requisito mínimo
     if [[ -n "$INTEGRATION_DOTFILES_DIR" && -d "$INTEGRATION_DOTFILES_DIR" ]]; then
         INTEGRATION_ENABLED=true
 
-        # Apply DOCKER_DIR from integration config if not already set by CLI
+        # Aplicar DOCKER_DIR del config si no fue seteado por CLI
         if [[ -n "$INTEGRATION_DOCKER_DIR" && "$DOCKER_DIR" == "/docker" ]]; then
             DOCKER_DIR="$INTEGRATION_DOCKER_DIR"
         fi
 
-        # Default catalog path if not specified
+        # Ruta de catálogo por defecto si no se especificó
         if [[ -z "$INTEGRATION_CATALOG_DIR" ]]; then
             INTEGRATION_CATALOG_DIR="${INTEGRATION_DOTFILES_DIR}/agent/catalog/services"
         fi
 
-        # Default global env path if not specified
+        # Ruta de env global por defecto si no se especificó
         if [[ -z "$INTEGRATION_GLOBAL_ENV" && -n "$INTEGRATION_DOCKER_DIR" ]]; then
             INTEGRATION_GLOBAL_ENV="${INTEGRATION_DOCKER_DIR}/.env"
         fi
@@ -106,10 +103,10 @@ load_integration_config() {
 }
 
 # ==============================================================================
-# SECTION 2: GLOBAL ENVIRONMENT
+# SECCIÓN 2: ENTORNO GLOBAL
 # ==============================================================================
 
-# Load global .env file (SERVER_IP, TZ, etc.) if integration is enabled
+# Cargar .env global (SERVER_IP, TZ, etc.) si la integración está habilitada
 load_global_env() {
     local env_file="${INTEGRATION_GLOBAL_ENV:-${DOCKER_DIR}/.env}"
 
@@ -117,14 +114,13 @@ load_global_env() {
         return 0
     fi
 
-    # Export only safe variables (no commands, no special chars)
     while IFS='=' read -r key value; do
         [[ "$key" =~ ^[[:space:]]*# ]] && continue
         [[ -z "$key" ]] && continue
         key=$(echo "$key" | xargs)
         value=$(echo "$value" | xargs)
 
-        # Only export uppercase vars that look like config
+        # Solo exportar vars en mayúsculas que parecen configuración
         if [[ "$key" =~ ^[A-Z_][A-Z0-9_]*$ ]]; then
             export "$key=$value"
         fi
@@ -132,80 +128,75 @@ load_global_env() {
 }
 
 # ==============================================================================
-# SECTION 3: CATALOG REGISTRATION
+# SECCIÓN 3: REGISTRO EN CATÁLOGO
 # ==============================================================================
 
-# Register an installed service to the nas-dotfiles catalog.
-# Called at the end of each service install script.
+# Registrar un servicio instalado en el catálogo externo.
+# Se llama al final de cada script de instalación.
 #
-# Usage: register_to_catalog
+# Uso: register_to_catalog
 #
-# Requires these variables to be set by the service script:
+# Requiere estas variables del script de servicio:
 #   APP, APP_ID, CATEGORY, IMAGE, var_cpu, var_ram
-#   PORT_WEB (or specific port vars)
-#   NETWORKS (array, optional)
+#   PORT_WEB (o vars de puerto específicas)
+#   NETWORKS (array, opcional)
 #
-# What it creates:
-#   $CATALOG_DIR/<APP_ID>/ficha.md      — service metadata
-#   $CATALOG_DIR/<APP_ID>/compose.yml   — copy of installed compose
-#   $CATALOG_DIR/<APP_ID>/.env.example  — sanitized env template
+# Lo que crea:
+#   $CATALOG_DIR/<APP_ID>/ficha.md      — metadatos del servicio
+#   $CATALOG_DIR/<APP_ID>/compose.yml   — copia del compose instalado
+#   $CATALOG_DIR/<APP_ID>/.env.example  — template de env sanitizado
 #
 register_to_catalog() {
-    # Skip if integration is not enabled
+    # Omitir si la integración no está habilitada
     if [[ "$INTEGRATION_ENABLED" != "true" ]]; then
         return 0
     fi
 
     local catalog_dir="${INTEGRATION_CATALOG_DIR}"
 
-    # Validate catalog directory exists
+    # Validar que el directorio del catálogo existe
     if [[ ! -d "$catalog_dir" ]]; then
-        # Try to create it (might be first service)
         mkdir -p "$catalog_dir" 2>/dev/null || return 0
     fi
 
     local svc_dir="${DOCKER_DIR}/${APP_ID}"
     local target_dir="${catalog_dir}/${APP_ID}"
 
-    msg_info "Registering ${APP} to catalog"
+    msg_info "📋 Registrando ${APP} en el catálogo"
 
-    # Create catalog entry directory
+    # Crear directorio de entrada en catálogo
     mkdir -p "$target_dir"
 
-    # ── Generate ficha.md ─────────────────────────────────────
+    # ── Generar ficha.md ──────────────────────────────────────
     _generate_ficha "$target_dir"
 
-    # ── Copy compose.yml ──────────────────────────────────────
+    # ── Copiar compose.yml ────────────────────────────────────
     if [[ -f "${svc_dir}/compose.yml" ]]; then
         cp "${svc_dir}/compose.yml" "${target_dir}/compose.yml"
     fi
 
-    # ── Generate .env.example (secrets replaced) ──────────────
+    # ── Generar .env.example (secretos reemplazados) ──────────
     _generate_env_example "$target_dir" "$svc_dir"
 
-    msg_ok "${APP} registered to catalog (${target_dir})"
+    msg_ok "📋 ${APP} registrado en catálogo (${target_dir})"
 }
 
-# Generate ficha.md for a service
+# Generar ficha.md para un servicio
 _generate_ficha() {
     local target_dir="$1"
 
-    # Determine ports
     local port_main="${PORT_WEB:-${PORT_MQTT:-${PORT_ADMIN:-0}}}"
 
-    # Determine networks
     local networks_yaml=""
     if [[ ${#NETWORKS[@]:-0} -gt 0 ]]; then
         networks_yaml=$(printf "  - %s\n" "${NETWORKS[@]}")
     fi
 
-    # Determine volumes from compose (if it exists already)
     local volumes_yaml=""
     if [[ -f "${DOCKER_DIR}/${APP_ID}/compose.yml" ]]; then
         volumes_yaml=$(grep -E "^\s+- \./.*:.*" "${DOCKER_DIR}/${APP_ID}/compose.yml" 2>/dev/null | sed 's/^[[:space:]]*/  /' || true)
     fi
 
-    # Extract env_required from .env (non-comment, non-empty keys)
     local env_list=""
     if [[ -f "${DOCKER_DIR}/${APP_ID}/.env" ]]; then
         env_list=$(grep -v '^#' "${DOCKER_DIR}/${APP_ID}/.env" | grep -v '^$' | cut -d= -f1 | sed 's/^/  - /' || true)
@@ -215,7 +206,7 @@ _generate_ficha() {
 ---
 id: "${APP_ID}"
 name: "${APP}"
-description: "Installed by DebMenux"
+description: "Instalado por DebMenux"
 aliases:
   - ${APP_ID}
 image: "${IMAGE}"
@@ -231,7 +222,7 @@ backup_paths:
   - "./data"
 protected: false
 docs_url: ""
-notes: "Auto-registered by DebMenux register_to_catalog()"
+notes: "Auto-registrado por DebMenux register_to_catalog()"
 $(if [[ -n "$networks_yaml" ]]; then
 echo "networks:"
 echo "$networks_yaml"
@@ -262,7 +253,7 @@ fi)
 EOF
 }
 
-# Generate .env.example (replace secret values with __pega_aqui__)
+# Generar .env.example (reemplazar valores secretos con __pega_aqui__)
 _generate_env_example() {
     local target_dir="$1"
     local svc_dir="$2"
@@ -271,9 +262,6 @@ _generate_env_example() {
         return 0
     fi
 
-    # Copy .env but replace actual secret values with placeholder
-    # Keep: TZ, non-secret config values
-    # Replace: passwords, tokens, cookies
     local secret_patterns="PASSWORD|SECRET|TOKEN|COOKIE|KEY|PASS"
 
     while IFS= read -r line; do
@@ -293,10 +281,10 @@ _generate_env_example() {
 }
 
 # ==============================================================================
-# SECTION 4: CATALOG QUERY (used by nas-dotfiles agent)
+# SECCIÓN 4: CONSULTA DE CATÁLOGO
 # ==============================================================================
 
-# Check if a service is registered in the catalog
+# Verificar si un servicio está registrado en el catálogo
 is_registered() {
     local service_id="$1"
     [[ "$INTEGRATION_ENABLED" == "true" ]] && \
@@ -304,9 +292,9 @@ is_registered() {
 }
 
 # ==============================================================================
-# SECTION 5: INITIALIZATION
+# SECCIÓN 5: INICIALIZACIÓN
 # ==============================================================================
 
-# Auto-load integration on source
+# Auto-cargar integración al hacer source
 load_integration_config
 load_global_env

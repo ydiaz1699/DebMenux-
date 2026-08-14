@@ -1,20 +1,20 @@
 #!/usr/bin/env bash
 # ==========================================================
-# DebMenux - Menu-driven toolkit for Debian homelab/NAS
+# DebMenux — Toolkit interactivo para homelab Debian + Docker
 # ==========================================================
-# File: install.sh
-# Description: One-liner installer. Downloads and installs
-#              DebMenux on any Debian-based system with Docker.
+# Archivo: install.sh
+# Descripción: Instalador one-liner. Descarga e instala
+#              DebMenux en cualquier sistema basado en Debian.
 #
-# Usage:
+# Uso:
 #   bash -c "$(curl -fsSL https://raw.githubusercontent.com/ydiaz1699/DebMenux-/main/install.sh)"
 #
-# License: MIT
+# Licencia: MIT
 # ==========================================================
 
 set -euo pipefail
 
-# Configuration
+# Configuración
 REPO_URL="https://github.com/ydiaz1699/DebMenux-.git"
 BASE_DIR="/usr/local/share/debmenux"
 INSTALL_DIR="/usr/local/bin"
@@ -22,7 +22,7 @@ CONFIG_FILE="${BASE_DIR}/config.json"
 MENU_CMD="debmenu"
 VERSION="0.1.0"
 
-# Colors (inline for the installer — lib/utils.sh not yet available)
+# Colores (inline porque lib/utils.sh aún no está disponible)
 GN="\033[1;92m"
 RD="\033[01;31m"
 YW="\033[33m"
@@ -31,8 +31,8 @@ BL="\033[36m"
 BOLD="\033[1m"
 CL="\033[m"
 TAB="    "
-CM="${GN}✓${CL}"
-CROSS="${RD}✗${CL}"
+CM="${GN}✅${CL}"
+CROSS="${RD}❌${CL}"
 
 SPINNER_PID=""
 
@@ -57,7 +57,7 @@ stop_spinner() {
 }
 
 msg_info() {
-    echo -ne "${TAB}${YW}- ${1}${CL}"
+    echo -ne "${TAB}⚙️  ${YW}${1}${CL}"
     spinner &
     SPINNER_PID=$!
 }
@@ -74,7 +74,7 @@ msg_error() {
 
 msg_warn() {
     stop_spinner
-    echo -e "${TAB}${YWB}⚠ ${1}${CL}"
+    echo -e "${TAB}⚠️  ${YWB}${1}${CL}"
 }
 
 cleanup() {
@@ -94,61 +94,59 @@ show_logo() {
     echo -e "${TAB}${BOLD}${BL}║                                      ║${CL}"
     echo -e "${TAB}${BOLD}${BL}║${CL}    ${BOLD}🐧 DebMenux${CL}  ${GN}v${VERSION}${CL}             ${BOLD}${BL}║${CL}"
     echo -e "${TAB}${BOLD}${BL}║${CL}                                      ${BOLD}${BL}║${CL}"
-    echo -e "${TAB}${BOLD}${BL}║${CL}    ${BOLD}Menu-driven toolkit for${CL}            ${BOLD}${BL}║${CL}"
-    echo -e "${TAB}${BOLD}${BL}║${CL}    ${BOLD}Debian Docker homelab${CL}              ${BOLD}${BL}║${CL}"
+    echo -e "${TAB}${BOLD}${BL}║${CL}    ${BOLD}Toolkit interactivo para${CL}           ${BOLD}${BL}║${CL}"
+    echo -e "${TAB}${BOLD}${BL}║${CL}    ${BOLD}homelab Debian + Docker${CL}            ${BOLD}${BL}║${CL}"
     echo -e "${TAB}${BOLD}${BL}║${CL}                                      ${BOLD}${BL}║${CL}"
     echo -e "${TAB}${BOLD}${BL}╚══════════════════════════════════════╝${CL}"
     echo -e ""
 }
 
 # ==============================================================================
-# PRE-FLIGHT CHECKS
+# VERIFICACIONES PREVIAS
 # ==============================================================================
 
 preflight_checks() {
-    # Must be root
+    # Debe ser root
     if [[ "$(id -u)" -ne 0 ]]; then
-        msg_error "This script must be run as root."
-        echo -e "${TAB}Run: ${YWB}sudo bash install.sh${CL}"
+        msg_error "Este script debe ejecutarse como root."
+        echo -e "${TAB}Ejecuta: ${YWB}sudo bash install.sh${CL}"
         exit 1
     fi
 
-    # Must be Debian-based
+    # Debe ser sistema basado en Debian
     if [[ ! -f /etc/debian_version ]]; then
-        msg_error "This toolkit requires a Debian-based system."
+        msg_error "Este toolkit requiere un sistema basado en Debian."
         exit 1
     fi
 
-    # Check internet connectivity
+    # Verificar conectividad a internet
     if ! ping -c 1 -W 3 github.com &>/dev/null; then
-        msg_error "No internet connectivity. Cannot reach github.com."
+        msg_error "Sin conexión a internet. No se puede alcanzar github.com."
         exit 1
     fi
 
-    msg_ok "Pre-flight checks passed"
+    msg_ok "Verificaciones previas pasadas 🛡️"
 }
 
 # ==============================================================================
-# LANGUAGE SELECTION
+# SELECCIÓN DE IDIOMA
 # ==============================================================================
 
 select_language() {
-    # Check if dialog is available for language selection
     if command -v dialog &>/dev/null; then
         local lang
-        lang=$(dialog --clear --backtitle "DebMenux Installer" \
-            --title "Select Language / Seleccionar Idioma" \
-            --menu "\nChoose your language:" 12 50 4 \
-            "es" "Español" \
-            "en" "English" \
+        lang=$(dialog --clear --backtitle "DebMenux — Instalador" \
+            --title " 🌐 Seleccionar Idioma " \
+            --menu "\nElige tu idioma:" 12 50 4 \
+            "es" "🇪🇸 Español" \
+            "en" "🇬🇧 English" \
             3>&1 1>&2 2>&3) || lang="es"
         clear
         DEBMENUX_LANG="$lang"
     else
-        # Fallback: simple prompt
-        echo -e "${TAB}${BL}?${CL} Select language / Seleccionar idioma:"
-        echo -e "${TAB}  1) Español (default)"
-        echo -e "${TAB}  2) English"
+        echo -e "${TAB}${BL}🌐${CL} Seleccionar idioma:"
+        echo -e "${TAB}  1) 🇪🇸 Español (por defecto)"
+        echo -e "${TAB}  2) 🇬🇧 English"
         read -rp "$(echo -e "${TAB}  → ")" choice
         case "$choice" in
             2) DEBMENUX_LANG="en" ;;
@@ -156,119 +154,119 @@ select_language() {
         esac
     fi
 
-    msg_ok "Language: ${DEBMENUX_LANG}"
+    msg_ok "Idioma: ${DEBMENUX_LANG} 🌐"
 }
 
 # ==============================================================================
-# INSTALL DEPENDENCIES
+# INSTALAR DEPENDENCIAS
 # ==============================================================================
 
 install_dependencies() {
-    msg_info "Updating package lists"
+    msg_info "Actualizando listas de paquetes"
     apt-get update -qq > /dev/null 2>&1
-    msg_ok "Package lists updated"
+    msg_ok "Listas de paquetes actualizadas 📦"
 
     local deps=("dialog" "curl" "jq" "git")
 
     for pkg in "${deps[@]}"; do
         if ! dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "ok installed"; then
-            msg_info "Installing ${pkg}"
+            msg_info "Instalando ${pkg}"
             apt-get install -y "$pkg" > /dev/null 2>&1
             if [[ $? -eq 0 ]]; then
-                msg_ok "${pkg} installed"
+                msg_ok "${pkg} instalado"
             else
-                msg_error "Failed to install ${pkg}"
+                msg_error "No se pudo instalar ${pkg}"
                 exit 1
             fi
         fi
     done
 
-    msg_ok "All dependencies satisfied"
+    msg_ok "Todas las dependencias satisfechas 📦"
 }
 
 # ==============================================================================
-# INSTALL DOCKER (if not present)
+# INSTALAR DOCKER (si no está presente)
 # ==============================================================================
 
 install_docker() {
     if command -v docker &>/dev/null; then
         local docker_ver
         docker_ver=$(docker --version | grep -oP '\d+\.\d+\.\d+')
-        msg_ok "Docker already installed (v${docker_ver})"
+        msg_ok "Docker ya instalado (v${docker_ver}) 🐳"
         return 0
     fi
 
     if ! confirm_install_docker; then
-        msg_warn "Docker not installed. Service scripts will not work without Docker."
+        msg_warn "Docker no instalado. Los scripts de servicios no funcionarán sin Docker."
         return 0
     fi
 
-    msg_info "Installing Docker via official script"
+    msg_info "Instalando Docker vía script oficial"
     curl -fsSL https://get.docker.com | sh > /dev/null 2>&1
     if [[ $? -eq 0 ]]; then
         systemctl enable --now docker > /dev/null 2>&1
-        msg_ok "Docker installed and started"
+        msg_ok "Docker instalado e iniciado 🐳"
     else
-        msg_error "Docker installation failed"
-        msg_warn "Install manually: https://docs.docker.com/engine/install/debian/"
+        msg_error "La instalación de Docker falló"
+        msg_warn "Instala manualmente: https://docs.docker.com/engine/install/debian/"
         return 1
     fi
 }
 
 confirm_install_docker() {
     echo -e ""
-    echo -e "${TAB}${YWB}Docker is not installed.${CL}"
-    echo -e "${TAB}DebMenux requires Docker for service management."
+    echo -e "${TAB}${YWB}⚠️  Docker no está instalado.${CL}"
+    echo -e "${TAB}DebMenux necesita Docker para gestionar servicios."
     echo -e ""
-    read -rp "$(echo -e "${TAB}${BL}?${CL} Install Docker now? [Y/n]: ")" answer
-    answer="${answer:-y}"
-    [[ "${answer,,}" == "y" || "${answer,,}" == "yes" ]]
+    read -rp "$(echo -e "${TAB}${BL}?${CL} ¿Instalar Docker ahora? [S/n]: ")" answer
+    answer="${answer:-s}"
+    [[ "${answer,,}" == "s" || "${answer,,}" == "si" || "${answer,,}" == "sí" || "${answer,,}" == "y" ]]
 }
 
 # ==============================================================================
-# CLONE & INSTALL FILES
+# CLONAR E INSTALAR ARCHIVOS
 # ==============================================================================
 
 install_files() {
     local temp_dir="/tmp/debmenux-install-$$"
 
-    msg_info "Cloning DebMenux repository"
+    msg_info "Clonando repositorio DebMenux"
     git clone --depth 1 "$REPO_URL" "$temp_dir" > /dev/null 2>&1
     if [[ $? -ne 0 ]]; then
-        msg_error "Failed to clone repository"
+        msg_error "No se pudo clonar el repositorio"
         exit 1
     fi
-    msg_ok "Repository cloned"
+    msg_ok "Repositorio clonado 📥"
 
-    msg_info "Installing DebMenux files"
+    msg_info "Instalando archivos de DebMenux"
 
-    # Create base directory
+    # Crear directorios base
     mkdir -p "$BASE_DIR"
     mkdir -p "${BASE_DIR}/scripts"
     mkdir -p "${BASE_DIR}/lib"
     mkdir -p "${BASE_DIR}/lang"
 
-    # Copy core files
+    # Copiar archivos principales
     cp -r "${temp_dir}/lib/"* "${BASE_DIR}/lib/"
     cp -r "${temp_dir}/scripts/"* "${BASE_DIR}/scripts/"
     cp -r "${temp_dir}/lang/"* "${BASE_DIR}/lang/" 2>/dev/null || true
     cp "${temp_dir}/services.json" "${BASE_DIR}/services.json" 2>/dev/null || true
 
-    # Install menu command
+    # Instalar comando del menú
     cp "${temp_dir}/menu" "${INSTALL_DIR}/${MENU_CMD}"
     chmod +x "${INSTALL_DIR}/${MENU_CMD}"
 
-    # Make all .sh files executable
+    # Hacer ejecutables todos los .sh
     find "${BASE_DIR}" -type f -name '*.sh' -exec chmod +x {} +
 
-    # Store version
+    # Guardar versión
     echo "$VERSION" > "${BASE_DIR}/version.txt"
 
-    msg_ok "DebMenux files installed"
+    msg_ok "Archivos de DebMenux instalados 📦"
 
-    # Create config if not exists
+    # Crear config si no existe
     if [[ ! -f "$CONFIG_FILE" ]]; then
-        # Detect integration config to read DOCKER_DIR
+        # Detectar config de integración para leer DOCKER_DIR
         local detected_docker_dir="/docker"
         local integration_conf=""
 
@@ -289,7 +287,7 @@ install_files() {
             if [[ -n "$parsed_docker_dir" ]]; then
                 detected_docker_dir="$parsed_docker_dir"
             fi
-            msg_ok "Integration config detected: ${integration_conf}"
+            msg_ok "Config de integración detectada: ${integration_conf} 🔗"
         fi
 
         cat > "$CONFIG_FILE" <<EOF
@@ -301,41 +299,42 @@ install_files() {
     "integration_conf": "${integration_conf}"
 }
 EOF
-        msg_ok "Configuration created (docker_dir: ${detected_docker_dir})"
+        msg_ok "Configuración creada (docker_dir: ${detected_docker_dir}) ⚙️"
     fi
 
-    # Cleanup
+    # Limpieza
     rm -rf "$temp_dir"
 }
 
 # ==============================================================================
-# POST-INSTALL
+# POST-INSTALACIÓN
 # ==============================================================================
 
 show_post_install() {
     echo -e ""
-    echo -e "${TAB}${BOLD}${GN}━━━ Installation complete! ━━━${CL}"
+    echo -e "${TAB}${BOLD}${GN}━━━ 🚀 Instalación completada ━━━${CL}"
     echo -e ""
-    echo -e "${TAB}${BOLD}To launch DebMenux:${CL}"
+    echo -e "${TAB}${BOLD}Para lanzar DebMenux:${CL}"
     echo -e "${TAB}  ${YWB}${MENU_CMD}${CL}"
     echo -e ""
-    echo -e "${TAB}${BOLD}To install a service directly:${CL}"
-    echo -e "${TAB}  ${YWB}${MENU_CMD} install <service>${CL}"
+    echo -e "${TAB}${BOLD}Para instalar un servicio directamente:${CL}"
+    echo -e "${TAB}  ${YWB}${MENU_CMD} install <servicio>${CL}"
     echo -e ""
-    echo -e "${TAB}${BOLD}Examples:${CL}"
-    echo -e "${TAB}  ${MENU_CMD} install adguard"
-    echo -e "${TAB}  ${MENU_CMD} install emqx"
-    echo -e "${TAB}  ${MENU_CMD} list"
+    echo -e "${TAB}${BOLD}Ejemplos:${CL}"
+    echo -e "${TAB}  📦 ${MENU_CMD} install adguard"
+    echo -e "${TAB}  📦 ${MENU_CMD} install emqx"
+    echo -e "${TAB}  📋 ${MENU_CMD} list"
+    echo -e "${TAB}  📊 ${MENU_CMD} status"
     echo -e ""
 
     local server_ip
     server_ip=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || hostname -I | awk '{print $1}')
-    echo -e "${TAB}${BOLD}Server IP:${CL} ${BL}${server_ip:-localhost}${CL}"
+    echo -e "${TAB}${BOLD}🌐 IP del servidor:${CL} ${BL}${server_ip:-localhost}${CL}"
     echo -e ""
 }
 
 # ==============================================================================
-# MAIN
+# PRINCIPAL
 # ==============================================================================
 
 main() {

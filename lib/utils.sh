@@ -1,26 +1,26 @@
 #!/usr/bin/env bash
 # ==========================================================
-# DebMenux - Menu-driven toolkit for Debian homelab/NAS
+# DebMenux — Toolkit interactivo para homelab Debian + Docker
 # ==========================================================
-# File: lib/utils.sh
-# Description: Core utility functions — colors, spinners,
-#              messages, translations, and common helpers.
-# License: MIT
+# Archivo: lib/utils.sh
+# Descripción: Funciones utilitarias — colores, spinners,
+#              mensajes con emojis, traducciones y helpers.
+# Licencia: MIT
 # ==========================================================
 
-# Prevent double-sourcing
+# Evitar doble source
 [[ -n "${__DEBMENUX_UTILS_LOADED:-}" ]] && return 0
 __DEBMENUX_UTILS_LOADED=1
 
 # ==============================================================================
-# SECTION 1: COLOR & STYLE DEFINITIONS
+# SECCIÓN 1: COLORES Y ESTILOS
 # ==============================================================================
 
 # Reset
 CL="\033[m"
 RESET="\033[0m"
 
-# Regular colors
+# Colores
 RD="\033[01;31m"
 GN="\033[1;92m"
 YW="\033[33m"
@@ -33,18 +33,29 @@ DARK_GRAY="\033[38;5;244m"
 ORANGE="\033[38;5;208m"
 PURPLE="\033[38;5;99m"
 
-# Symbols
-CM="${GN}✓${CL}"
-CROSS="${RD}✗${CL}"
+# Símbolos con emojis
+CM="${GN}✅${CL}"
+CROSS="${RD}❌${CL}"
 ARROW="${BL}➜${CL}"
-INFO_ICON="${YW}ℹ${CL}"
-WARN_ICON="${ORANGE}⚠${CL}"
+INFO_ICON="${BL}ℹ️${CL}"
+WARN_ICON="${ORANGE}⚠️${CL}"
+ROCKET="🚀"
+PACKAGE="📦"
+GEAR="⚙️"
+SHIELD="🛡️"
+NETWORK="🌐"
+DISK="💾"
+KEY="🔑"
+CHECK="✅"
+FIRE="🔥"
+WRENCH="🔧"
+CLOCK="⏱️"
 TAB="    "
 HOLD="-"
 BFR="\\r\\033[K"
 
 # ==============================================================================
-# SECTION 2: SPINNER
+# SECCIÓN 2: SPINNER
 # ==============================================================================
 
 SPINNER_PID=""
@@ -55,7 +66,7 @@ spinner() {
     local interval=0.1
     local color="${YW}"
 
-    printf "\e[?25l"  # Hide cursor
+    printf "\e[?25l"  # Ocultar cursor
 
     while true; do
         printf "\r ${color}%s${CL}" "${frames[spin_i]}"
@@ -69,18 +80,18 @@ stop_spinner() {
         kill "$SPINNER_PID" > /dev/null 2>&1
         wait "$SPINNER_PID" 2>/dev/null
     fi
-    printf "\r\033[K"   # Clear line
-    printf "\e[?25h"    # Show cursor
+    printf "\r\033[K"   # Limpiar línea
+    printf "\e[?25h"    # Mostrar cursor
     SPINNER_PID=""
 }
 
 # ==============================================================================
-# SECTION 3: MESSAGE FUNCTIONS
+# SECCIÓN 3: FUNCIONES DE MENSAJE (con emojis)
 # ==============================================================================
 
 msg_info() {
     local msg="$1"
-    echo -ne "${TAB}${YW}${HOLD} ${msg}${CL}"
+    echo -ne "${TAB}${GEAR} ${YW}${msg}${CL}"
     spinner &
     SPINNER_PID=$!
 }
@@ -111,27 +122,27 @@ msg_title() {
 msg_success() {
     stop_spinner
     local msg="$1"
-    echo -e "${BFR}${TAB}${CM} ${BOLD}${GN}${msg}${CL}\n"
+    echo -e "${BFR}${TAB}${ROCKET} ${BOLD}${GN}${msg}${CL}\n"
 }
 
-# Print a separator line
+# Separador visual
 msg_separator() {
     echo -e "${TAB}${DARK_GRAY}────────────────────────────────────────${CL}"
 }
 
 # ==============================================================================
-# SECTION 4: SYSTEM HELPERS
+# SECCIÓN 4: HELPERS DEL SISTEMA
 # ==============================================================================
 
-# Check if running as root
+# Verificar que se ejecuta como root
 check_root() {
     if [[ "$(id -u)" -ne 0 ]]; then
-        msg_error "This script must be run as root (sudo)."
+        msg_error "Este script debe ejecutarse como root (sudo)."
         exit 1
     fi
 }
 
-# Get the primary IP of the server
+# Obtener la IP principal del servidor
 get_server_ip() {
     local ip
     ip=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+')
@@ -140,12 +151,12 @@ get_server_ip() {
     echo "$ip"
 }
 
-# Check if a command exists
+# Verificar si un comando existe
 command_exists() {
     command -v "$1" &>/dev/null
 }
 
-# Resolve architecture name for downloads
+# Resolver nombre de arquitectura para descargas
 arch_resolve() {
     local arch
     arch=$(uname -m)
@@ -158,19 +169,19 @@ arch_resolve() {
 }
 
 # ==============================================================================
-# SECTION 5: PACKAGE MANAGEMENT
+# SECCIÓN 5: GESTIÓN DE PAQUETES
 # ==============================================================================
 
-# Install a package if not already installed
+# Instalar paquete si no está presente
 ensure_package() {
     local pkg="$1"
     if ! dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "ok installed"; then
-        msg_info "Installing ${pkg}..."
+        msg_info "Instalando ${pkg}..."
         apt-get install -y "$pkg" > /dev/null 2>&1
         if [[ $? -eq 0 ]]; then
-            msg_ok "${pkg} installed"
+            msg_ok "${pkg} instalado"
         else
-            msg_error "Failed to install ${pkg}"
+            msg_error "No se pudo instalar ${pkg}"
             return 1
         fi
     fi
@@ -178,7 +189,7 @@ ensure_package() {
 }
 
 # ==============================================================================
-# SECTION 6: TRANSLATION SUPPORT
+# SECCIÓN 6: SOPORTE DE TRADUCCIONES
 # ==============================================================================
 
 DEBMENUX_LANG="${DEBMENUX_LANG:-es}"
@@ -188,11 +199,9 @@ load_language() {
     local lang_file="${DEBMENUX_BASE_DIR:-/usr/local/share/debmenux}/lang/${DEBMENUX_LANG}.json"
 
     if [[ ! -f "$lang_file" ]]; then
-        # Fallback: no translation, use raw strings
         return 1
     fi
 
-    # Load translations into associative array
     while IFS="=" read -r key value; do
         __TRANSLATIONS["$key"]="$value"
     done < <(jq -r 'to_entries[] | "\(.key)=\(.value)"' "$lang_file" 2>/dev/null)
@@ -213,40 +222,40 @@ translate() {
 t() { translate "$@"; }
 
 # ==============================================================================
-# SECTION 7: INPUT & VALIDATION
+# SECCIÓN 7: ENTRADA Y VALIDACIÓN
 # ==============================================================================
 
-# Ask yes/no question (default yes)
+# Pregunta sí/no (por defecto sí)
 confirm() {
-    local msg="${1:-Continue?}"
+    local msg="${1:-¿Continuar?}"
     local default="${2:-y}"
     local prompt
 
     if [[ "$default" == "y" ]]; then
-        prompt="${msg} [Y/n]: "
+        prompt="${msg} [S/n]: "
     else
-        prompt="${msg} [y/N]: "
+        prompt="${msg} [s/N]: "
     fi
 
     read -rp "$(echo -e "${TAB}${BL}?${CL} ${prompt}")" answer
     answer="${answer:-$default}"
 
-    [[ "${answer,,}" == "y" || "${answer,,}" == "yes" ]]
+    [[ "${answer,,}" == "y" || "${answer,,}" == "yes" || "${answer,,}" == "s" || "${answer,,}" == "si" || "${answer,,}" == "sí" ]]
 }
 
-# Validate that a variable is not empty
+# Validar que una variable no esté vacía
 require_var() {
     local var_name="$1"
     local var_value="$2"
     if [[ -z "$var_value" ]]; then
-        msg_error "Required variable ${var_name} is empty!"
+        msg_error "La variable requerida ${var_name} está vacía."
         return 1
     fi
     return 0
 }
 
 # ==============================================================================
-# SECTION 8: CLEANUP
+# SECCIÓN 8: LIMPIEZA
 # ==============================================================================
 
 cleanup_on_exit() {
