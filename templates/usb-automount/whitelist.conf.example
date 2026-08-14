@@ -1,0 +1,13 @@
+# ==========================================================
+# Lista Blanca de Dispositivos USB
+# ==========================================================
+# Un UUID o nombre de dispositivo por línea.
+# Solo los dispositivos listados aquí serán montados
+# cuando WHITELIST_ENABLED=true en usb-automount.conf.
+#
+# Obtener UUID: blkid /dev/sdX1
+# Ejemplo:
+#   1234-ABCD
+#   A1B2-C3D4
+#   sdc1
+# ==========================================================

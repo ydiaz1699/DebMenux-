@@ -1,0 +1,19 @@
+# ==========================================================
+# DebMenux — Timer para limpieza periódica
+# ==========================================================
+# Archivo: /etc/systemd/system/usb-automount-cleanup.timer
+#
+# Ejecuta la limpieza de puntos de montaje huérfanos
+# cada hora y al arranque del sistema.
+# ==========================================================
+
+[Unit]
+Description=⏱️ Timer de limpieza de montajes USB huérfanos
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=1h
+Persistent=true
+
+[Install]
+WantedBy=timers.target

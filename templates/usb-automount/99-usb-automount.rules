@@ -1,0 +1,17 @@
+# ==========================================================
+# DebMenux — Reglas udev para Automontaje USB
+# ==========================================================
+# Archivo: /etc/udev/rules.d/99-usb-automount.rules
+#
+# Detecta particiones USB con filesystem y dispara el servicio
+# systemd correspondiente para montar/desmontar.
+#
+# Soporta: sd[a-z][0-9]+ (USB mass storage)
+# No afecta: discos internos, NVMe, loop devices
+# ==========================================================
+
+# Montar: cuando se conecta un USB con filesystem reconocido
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="sd[a-z][0-9]*", ENV{ID_USB_DRIVER}=="usb-storage", ENV{ID_FS_USAGE}=="filesystem", TAG+="systemd", ENV{SYSTEMD_WANTS}="usb-automount@%k.service"
+
+# Desmontar: cuando se desconecta el USB (llamada directa como fallback)
+ACTION=="remove", SUBSYSTEM=="block", KERNEL=="sd[a-z][0-9]*", RUN+="/usr/local/bin/usb-automount.sh %k remove"

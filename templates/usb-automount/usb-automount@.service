@@ -1,0 +1,26 @@
+# ==========================================================
+# DebMenux — Servicio systemd para Automontaje USB
+# ==========================================================
+# Archivo: /etc/systemd/system/usb-automount@.service
+#
+# Servicio instanciado: una instancia por partición USB.
+# Se activa automáticamente via udev cuando se conecta un USB.
+# Se detiene cuando el dispositivo se desconecta (BindsTo).
+# ==========================================================
+
+[Unit]
+Description=🔌 Automontaje USB para /dev/%I
+Requires=dev-%i.device
+BindsTo=dev-%i.device
+After=dev-%i.device
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/usb-automount.sh %I add
+ExecStop=/usr/local/bin/usb-automount.sh %I remove
+TimeoutStartSec=45s
+TimeoutStopSec=15s
+
+[Install]
+WantedBy=dev-%i.device

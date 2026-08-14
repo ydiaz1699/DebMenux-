@@ -67,7 +67,7 @@ show_main_menu() {
             4) show_placeholder "🌐 Gestión de Red" ;;
             5) show_placeholder "💾 Almacenamiento y Discos" ;;
             6) show_placeholder "🗄️ Backup y Restauración" ;;
-            7) show_placeholder "⚙️ Optimización Post-Instalación" ;;
+            7) show_post_install_menu ;;
             8) show_system_info ;;
             9) show_settings_menu ;;
             0)
@@ -339,6 +339,64 @@ check_updates() {
     sleep 2
     msg_ok "Estás ejecutando la última versión (v${DEBMENUX_VERSION}) 🎉"
     sleep 2
+}
+
+# ==============================================================================
+# SUBMENÚ: POST-INSTALACIÓN
+# ==============================================================================
+
+show_post_install_menu() {
+    local TEMP_FILE
+    TEMP_FILE=$(mktemp)
+
+    dialog --clear \
+        --backtitle "🐧 DebMenux — Post-Instalación" \
+        --title " ⚙️ Optimización Post-Instalación " \
+        --menu "\nConfigura y optimiza tu servidor:" 16 60 6 \
+        1 "🔌 Automontaje USB (instalar/configurar)" \
+        2 "📊 Estado del Automontaje USB" \
+        3 "⏏️  Desinstalar Automontaje USB" \
+        4 "🐳 Instalar Docker" \
+        5 "🐧 Optimizar Debian (swap, sysctl, zram)" \
+        0 "↩️  Volver al Menú Principal" 2>"$TEMP_FILE"
+
+    local exit_status=$?
+    [[ $exit_status -ne 0 ]] && { rm -f "$TEMP_FILE"; return; }
+
+    local option
+    option=$(<"$TEMP_FILE")
+    rm -f "$TEMP_FILE"
+
+    case "$option" in
+        1)
+            clear
+            msg_title "🔌 Instalando Automontaje USB"
+            source "${DEBMENUX_SCRIPTS}/post-install/usb-automount.sh"
+            install_service
+            echo -e "\n${TAB}Presiona ENTER para continuar..."
+            read -r
+            show_post_install_menu
+            ;;
+        2)
+            clear
+            source "${DEBMENUX_SCRIPTS}/post-install/usb-automount.sh"
+            show_status
+            echo -e "\n${TAB}Presiona ENTER para continuar..."
+            read -r
+            show_post_install_menu
+            ;;
+        3)
+            clear
+            source "${DEBMENUX_SCRIPTS}/post-install/usb-automount.sh"
+            uninstall_service
+            echo -e "\n${TAB}Presiona ENTER para continuar..."
+            read -r
+            show_post_install_menu
+            ;;
+        4) show_placeholder "🐳 Instalar Docker" ; show_post_install_menu ;;
+        5) show_placeholder "🐧 Optimizar Debian" ; show_post_install_menu ;;
+        0) return ;;
+    esac
 }
 
 # ==============================================================================

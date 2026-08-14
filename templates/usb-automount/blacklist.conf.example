@@ -1,0 +1,12 @@
+# ==========================================================
+# Lista Negra de Dispositivos USB
+# ==========================================================
+# Un UUID o nombre de dispositivo por línea.
+# Los dispositivos listados aquí NUNCA serán montados
+# cuando BLACKLIST_ENABLED=true en usb-automount.conf.
+#
+# Obtener UUID: blkid /dev/sdX1
+# Ejemplo:
+#   5678-EFGH
+#   sdd1
+# ==========================================================

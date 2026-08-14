@@ -1,0 +1,16 @@
+# ==========================================================
+# DebMenux — Servicio de limpieza de puntos de montaje huérfanos
+# ==========================================================
+# Archivo: /etc/systemd/system/usb-automount-cleanup.service
+#
+# Limpia directorios de montaje que quedaron después de
+# desconexiones abruptas o fallos del sistema.
+# Activado por el timer usb-automount-cleanup.timer.
+# ==========================================================
+
+[Unit]
+Description=🧹 Limpieza de puntos de montaje USB huérfanos
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/usb-automount.sh _ cleanup
