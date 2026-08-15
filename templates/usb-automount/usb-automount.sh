@@ -470,23 +470,233 @@ send_umount_notification() {
     fi
 }
 
+# Notificación de desconexión insegura (USB retirado sin desmontar)
+send_unsafe_disconnect_notification() {
+    local device="$1"
+    local mountpoint="$2"
+    log_warning "⚠️ DESCONEXIÓN INSEGURA: /dev/$device fue retirado sin desmontar de $mountpoint"
+    if [[ "$ENABLE_NOTIFICATIONS" == "true" ]] && command -v notify-send &>/dev/null; then
+        notify-send -u critical "⚠️ USB Desconexión Insegura" \
+            "$device fue retirado sin desmontar.\nPunto: $mountpoint\nEjecuta: usb-automount.sh --cleanup" 2>/dev/null || true
+    fi
+}
+
+# ==============================================================================
+# CLI: --status (USBs montados, formato parseable)
+# ==============================================================================
+
+cli_status() {
+    local mount_base="$MOUNT_BASE"
+    local old_nullglob
+    old_nullglob=$(shopt -p nullglob 2>/dev/null || true)
+    shopt -s nullglob
+
+    local found=0
+    echo "# USB Automount — Estado"
+    echo "# mount_base: $mount_base"
+    echo "# timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+    echo "#"
+    echo "# DISPOSITIVO | PUNTO_MONTAJE | FILESYSTEM | TAMAÑO | ESTADO"
+
+    for dir in "$mount_base"/usb-*; do
+        [[ -d "$dir" ]] || continue
+        local dev_name
+        dev_name=$(basename "$dir" | sed 's/usb-//')
+
+        if mountpoint -q "$dir" 2>/dev/null; then
+            local fs_type size
+            fs_type=$(findmnt -n -o FSTYPE "$dir" 2>/dev/null || echo "?")
+            size=$(findmnt -n -o SIZE "$dir" 2>/dev/null || echo "?")
+            echo "$dev_name | $dir | $fs_type | $size | montado"
+            found=1
+        else
+            echo "$dev_name | $dir | - | - | huérfano"
+            found=1
+        fi
+    done
+
+    eval "$old_nullglob" 2>/dev/null || true
+
+    if [[ $found -eq 0 ]]; then
+        echo "# (ningún USB detectado)"
+    fi
+}
+
+# ==============================================================================
+# CLI: --list (solo nombres, para scripts/pipes)
+# ==============================================================================
+
+cli_list() {
+    local mount_base="$MOUNT_BASE"
+    local old_nullglob
+    old_nullglob=$(shopt -p nullglob 2>/dev/null || true)
+    shopt -s nullglob
+
+    for dir in "$mount_base"/usb-*; do
+        [[ -d "$dir" ]] || continue
+        if mountpoint -q "$dir" 2>/dev/null; then
+            basename "$dir"
+        fi
+    done
+
+    eval "$old_nullglob" 2>/dev/null || true
+}
+
+# ==============================================================================
+# CLI: --export (empaquetar config para backup/reinstalación)
+# ==============================================================================
+
+cli_export() {
+    local output="${1:-/tmp/usb-automount-backup.tar.gz}"
+    local tmp_dir
+    tmp_dir=$(mktemp -d /tmp/usb-automount-export.XXXXXX)
+
+    # Copiar archivos de configuración
+    [[ -f "$CONFIG_FILE" ]] && cp "$CONFIG_FILE" "$tmp_dir/usb-automount.conf"
+    [[ -f "/etc/usb-automount-whitelist.conf" ]] && cp "/etc/usb-automount-whitelist.conf" "$tmp_dir/whitelist.conf"
+    [[ -f "/etc/usb-automount-blacklist.conf" ]] && cp "/etc/usb-automount-blacklist.conf" "$tmp_dir/blacklist.conf"
+
+    # Metadata
+    cat > "$tmp_dir/export-info.txt" <<EOF
+# USB Automount — Export
+# Fecha: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+# Host: $(hostname)
+# Versión script: $(grep "^# Version" /usr/local/bin/usb-automount.sh 2>/dev/null | head -1 || echo "unknown")
+#
+# Para restaurar:
+#   usb-automount.sh --import $output
+EOF
+
+    # Empaquetar
+    tar -czf "$output" -C "$tmp_dir" . 2>/dev/null
+    rm -rf "$tmp_dir"
+
+    echo "✅ Config exportada a: $output"
+    echo "   Contiene: usb-automount.conf, whitelist.conf, blacklist.conf"
+    echo "   Restaurar: usb-automount.sh --import $output"
+}
+
+# ==============================================================================
+# CLI: --import (restaurar config desde backup)
+# ==============================================================================
+
+cli_import() {
+    local input="${1:-}"
+
+    if [[ -z "$input" || ! -f "$input" ]]; then
+        echo "❌ Uso: usb-automount.sh --import <archivo.tar.gz>"
+        echo "   Genera uno con: usb-automount.sh --export [ruta]"
+        return 1
+    fi
+
+    local tmp_dir
+    tmp_dir=$(mktemp -d /tmp/usb-automount-import.XXXXXX)
+
+    # Extraer
+    if ! tar -xzf "$input" -C "$tmp_dir" 2>/dev/null; then
+        echo "❌ Error al extraer: $input"
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+
+    # Verificar que tiene el archivo principal
+    if [[ ! -f "$tmp_dir/usb-automount.conf" ]]; then
+        echo "❌ Archivo inválido — no contiene usb-automount.conf"
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+
+    # Backup de config actual antes de sobreescribir
+    [[ -f "$CONFIG_FILE" ]] && cp "$CONFIG_FILE" "${CONFIG_FILE}.pre-import.bak"
+
+    # Restaurar
+    cp "$tmp_dir/usb-automount.conf" "$CONFIG_FILE"
+    chmod 644 "$CONFIG_FILE"
+    echo "✅ Restaurado: $CONFIG_FILE"
+
+    if [[ -f "$tmp_dir/whitelist.conf" ]]; then
+        cp "$tmp_dir/whitelist.conf" "/etc/usb-automount-whitelist.conf"
+        echo "✅ Restaurado: /etc/usb-automount-whitelist.conf"
+    fi
+
+    if [[ -f "$tmp_dir/blacklist.conf" ]]; then
+        cp "$tmp_dir/blacklist.conf" "/etc/usb-automount-blacklist.conf"
+        echo "✅ Restaurado: /etc/usb-automount-blacklist.conf"
+    fi
+
+    # Mostrar info del export
+    if [[ -f "$tmp_dir/export-info.txt" ]]; then
+        echo ""
+        echo "📋 Info del backup:"
+        grep -v "^#.*Para restaurar" "$tmp_dir/export-info.txt" | grep -v "^#.*usb-automount" | grep "^#" | sed 's/^# /   /'
+    fi
+
+    rm -rf "$tmp_dir"
+
+    # Recargar config
+    echo ""
+    echo "🔄 Recargando udev..."
+    udevadm control --reload-rules 2>/dev/null || true
+    echo "✅ Importación completada. La config está activa."
+}
+
 # ==============================================================================
 # PUNTO DE ENTRADA
 # ==============================================================================
 
 main() {
-    local device="$1"
-    local action="$2"
-
     _init_logger
+
+    # ── CLI flags (no requieren dispositivo como argumento) ────
+    case "${1:-}" in
+        --status)
+            cli_status
+            exit 0
+            ;;
+        --list)
+            cli_list
+            exit 0
+            ;;
+        --cleanup)
+            cleanup_orphaned
+            exit 0
+            ;;
+        --export)
+            cli_export "${2:-/tmp/usb-automount-backup.tar.gz}"
+            exit 0
+            ;;
+        --import)
+            cli_import "${2:-}"
+            exit $?
+            ;;
+        --help|-h)
+            echo "USB Automount — Gestión de dispositivos USB"
+            echo ""
+            echo "Uso automático (via udev/systemd):"
+            echo "  usb-automount.sh <dispositivo> <add|remove>"
+            echo ""
+            echo "Uso manual (CLI):"
+            echo "  usb-automount.sh --status      Mostrar USBs montados (parseable)"
+            echo "  usb-automount.sh --list        Solo nombres de USBs montados"
+            echo "  usb-automount.sh --cleanup     Limpiar puntos de montaje huérfanos"
+            echo "  usb-automount.sh --export [f]  Exportar config a archivo (.tar.gz)"
+            echo "  usb-automount.sh --import <f>  Importar config desde backup"
+            echo "  usb-automount.sh --help        Mostrar esta ayuda"
+            exit 0
+            ;;
+    esac
+
+    # ── Modo normal: dispositivo + acción (llamado por systemd) ─
+    local device="${1:-}"
+    local action="${2:-}"
 
     # Validar argumentos
     if [[ -z "$device" || -z "$action" ]]; then
-        log_error "Uso: $0 <dispositivo> <add|remove|cleanup>"
+        log_error "Uso: $0 <dispositivo> <add|remove|cleanup> | --status | --list | --cleanup | --export | --import"
         exit 1
     fi
 
-    # Acción especial: limpieza de huérfanos
+    # Acción especial legacy: cleanup (compatible con timer)
     if [[ "$action" == "cleanup" ]]; then
         cleanup_orphaned
         exit 0
@@ -549,6 +759,14 @@ main() {
 
         remove)
             log_info "═══ DESMONTAJE: /dev/$device ═══"
+
+            local mountpoint="$MOUNT_BASE/usb-$device"
+
+            # Detectar desconexión insegura: mount sigue activo pero dispositivo ya no existe
+            if mountpoint -q "$mountpoint" 2>/dev/null && [[ ! -b "/dev/$device" ]]; then
+                send_unsafe_disconnect_notification "$device" "$mountpoint"
+            fi
+
             do_umount "$device"
             ;;
 
