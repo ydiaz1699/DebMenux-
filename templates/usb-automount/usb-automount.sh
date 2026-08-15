@@ -520,16 +520,21 @@ main() {
         add)
             log_info "═══ MONTAJE: /dev/$device ═══"
 
-            # Verificar blacklist
-            if check_blacklist "$device"; then
-                log_warning "Dispositivo $device en blacklist — denegado"
-                exit 0
-            fi
+            # Root monta cualquier USB — whitelist/blacklist solo aplica a usuarios
+            if [[ "$(id -u)" -ne 0 ]]; then
+                # Verificar blacklist
+                if check_blacklist "$device"; then
+                    log_warning "Dispositivo $device en blacklist — denegado (usuario: $(whoami))"
+                    exit 0
+                fi
 
-            # Verificar whitelist
-            if ! check_whitelist "$device"; then
-                log_warning "Dispositivo $device no autorizado (whitelist activa)"
-                exit 0
+                # Verificar whitelist
+                if ! check_whitelist "$device"; then
+                    log_warning "Dispositivo $device no autorizado — whitelist activa (usuario: $(whoami))"
+                    exit 0
+                fi
+            else
+                log_debug "Root detectado — saltando whitelist/blacklist"
             fi
 
             # Verificar tamaño mínimo
