@@ -126,6 +126,30 @@
       "github_url": "https://github.com/dani-garcia/vaultwarden",
       "resources": { "cpu": "0.25", "memory": "128M" },
       "tags": ["contraseñas", "seguridad", "bitwarden", "vault"]
+    },
+    {
+      "id": "ntfy",
+      "name": "ntfy",
+      "description": "Servidor de notificaciones push HTTP pub-sub self-hosted",
+      "category": "monitoring",
+      "image": "binwiederhier/ntfy:latest",
+      "port": 8090,
+      "source_url": "https://ntfy.sh/",
+      "github_url": "https://github.com/binwiederhier/ntfy",
+      "resources": { "cpu": "0.5", "memory": "256M" },
+      "networks": ["homepage_net"],
+      "tags": ["notificaciones", "push", "alertas", "android", "pwa", "pub-sub"]
+    },
+    {
+      "id": "usb-api",
+      "name": "USB API",
+      "description": "Mini API REST para listar y desmontar USBs desde web",
+      "category": "management",
+      "port": 8091,
+      "native": true,
+      "source_url": "https://github.com/ydiaz1699/DebMenux-",
+      "resources": { "cpu": "0.1", "memory": "32M" },
+      "tags": ["usb", "api", "rest", "desmontar", "systemd", "homepage"]
     }
   ],
   "categories": [

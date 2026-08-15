@@ -349,11 +349,7 @@ do_mount() {
     # Ejecutar con timeout
     if timeout "$TIMEOUT_MOUNT" bash -c "$mount_cmd" 2>/dev/null; then
         log_info "✅ $device_path ($fs_type) montado en $mountpoint"
-
-        # Notificación de escritorio (si habilitada)
-        if [[ "$ENABLE_NOTIFICATIONS" == "true" ]] && command -v notify-send &>/dev/null; then
-            notify-send "🔌 USB Montado" "$device ($fs_type) → $mountpoint" 2>/dev/null || true
-        fi
+        send_mount_notification "$device" "$mountpoint" "$fs_type"
         return 0
     fi
 
@@ -459,14 +455,52 @@ cleanup_orphaned() {
 }
 
 # ==============================================================================
-# NOTIFICACIONES
+# NOTIFICACIONES (via ntfy — reemplaza notify-send que no sirve en headless)
 # ==============================================================================
+
+# Cargar librería de notificaciones si existe (instalada por DebMenux)
+_NOTIFICATIONS_LIB="/debmenux/lib/notifications.sh"
+if [[ -f "$_NOTIFICATIONS_LIB" ]]; then
+    # shellcheck source=/dev/null
+    source "$_NOTIFICATIONS_LIB"
+else
+    # Fallback inline si no existe la librería (instalación standalone)
+    ntfy_send() {
+        local topic="${1:-nas-alerts}" title="${2:-}" message="${3:-}"
+        local priority="${4:-default}" tags="${5:-}"
+        local ntfy_url="${NTFY_URL:-http://localhost:8090}"
+        [[ -z "$message" ]] && return 0
+        local -a h=()
+        [[ -n "$title" ]] && h+=(-H "Title: $title")
+        [[ -n "$priority" && "$priority" != "default" ]] && h+=(-H "Priority: $priority")
+        [[ -n "$tags" ]] && h+=(-H "Tags: $tags")
+        curl -s --max-time 5 "${h[@]}" -d "$message" "${ntfy_url}/${topic}" >/dev/null 2>&1 || true
+    }
+    ntfy_usb_mounted() {
+        ntfy_send "usb" "🔌 USB Montado" "${1} (${3:-}) → ${2}" "default" "usb,mount"
+    }
+    ntfy_usb_unmounted() {
+        ntfy_send "usb" "⏏️ USB Desmontado" "${1} desconectado de ${2}" "default" "usb,eject"
+    }
+    ntfy_usb_unsafe() {
+        ntfy_send "usb" "⚠️ Desconexión Insegura" "${1} retirado sin desmontar de ${2}. Ejecutar: usb-automount.sh --cleanup" "high" "warning,usb"
+    }
+fi
+
+send_mount_notification() {
+    local device="$1"
+    local mountpoint="$2"
+    local fs_type="${3:-}"
+    if [[ "$ENABLE_NOTIFICATIONS" == "true" ]]; then
+        ntfy_usb_mounted "$device" "$mountpoint" "$fs_type"
+    fi
+}
 
 send_umount_notification() {
     local device="$1"
     local mountpoint="$2"
-    if [[ "$ENABLE_NOTIFICATIONS" == "true" ]] && command -v notify-send &>/dev/null; then
-        notify-send "⏏️ USB Desmontado" "$device desconectado de $mountpoint" 2>/dev/null || true
+    if [[ "$ENABLE_NOTIFICATIONS" == "true" ]]; then
+        ntfy_usb_unmounted "$device" "$mountpoint"
     fi
 }
 
@@ -475,9 +509,8 @@ send_unsafe_disconnect_notification() {
     local device="$1"
     local mountpoint="$2"
     log_warning "⚠️ DESCONEXIÓN INSEGURA: /dev/$device fue retirado sin desmontar de $mountpoint"
-    if [[ "$ENABLE_NOTIFICATIONS" == "true" ]] && command -v notify-send &>/dev/null; then
-        notify-send -u critical "⚠️ USB Desconexión Insegura" \
-            "$device fue retirado sin desmontar.\nPunto: $mountpoint\nEjecuta: usb-automount.sh --cleanup" 2>/dev/null || true
+    if [[ "$ENABLE_NOTIFICATIONS" == "true" ]]; then
+        ntfy_usb_unsafe "$device" "$mountpoint"
     fi
 }
 
