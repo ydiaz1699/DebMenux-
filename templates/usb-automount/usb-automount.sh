@@ -302,9 +302,9 @@ get_mount_options() {
 do_mount() {
     local device="$1"
     local device_path="/dev/$device"
-    local mountpoint="$MOUNT_BASE/usb-$device"
     local fs_type
     local mount_opts
+    local mountpoint
 
     # Detectar filesystem
     fs_type=$(detect_filesystem "$device")
@@ -312,6 +312,33 @@ do_mount() {
         log_error "No se pudo detectar filesystem en $device_path"
         return 1
     fi
+
+    # Determinar nombre del mountpoint: usar LABEL si existe, sino usb-<device>
+    local label
+    label=$(blkid -o value -s LABEL "$device_path" 2>/dev/null)
+
+    if [[ -n "$label" ]]; then
+        # Sanitizar label: quitar caracteres peligrosos, espacios → guión bajo
+        label=$(echo "$label" | tr ' ' '_' | tr -cd '[:alnum:]._-')
+        # Limitar longitud
+        label="${label:0:64}"
+        mountpoint="$MOUNT_BASE/$label"
+
+        # Si ya existe un mountpoint con ese label pero es otro dispositivo, agregar sufijo
+        if [[ -d "$mountpoint" ]] && mountpoint -q "$mountpoint" 2>/dev/null; then
+            local existing_dev
+            existing_dev=$(findmnt -n -o SOURCE "$mountpoint" 2>/dev/null)
+            if [[ "$existing_dev" != "$device_path" ]]; then
+                log_warning "Mountpoint $mountpoint ya en uso por $existing_dev, usando fallback"
+                mountpoint="$MOUNT_BASE/usb-$device"
+            fi
+        fi
+    else
+        # Sin label → formato clásico usb-<device>
+        mountpoint="$MOUNT_BASE/usb-$device"
+    fi
+
+    log_debug "Mountpoint determinado: $mountpoint (label='${label:-none}')"
 
     # Obtener opciones de montaje
     mount_opts=$(get_mount_options "$fs_type")

@@ -93,9 +93,9 @@ def get_mounted_usbs():
         data = json.loads(result.stdout)
         for fs in data.get("filesystems", []):
             target = fs.get("target", "")
-            # Solo listar subdirectorios usb-* dentro de MOUNT_BASE
-            # Excluir el propio MOUNT_BASE (es el disco del sistema, no un USB)
-            if target.startswith(MOUNT_BASE + "/usb-"):
+            # Solo listar subdirectorios dentro de MOUNT_BASE (no el propio MOUNT_BASE)
+            # Soporta tanto /NAS/USB/usb-sdb1 como /NAS/USB/MI_PENDRIVE (por label)
+            if target.startswith(MOUNT_BASE + "/") and target != MOUNT_BASE:
                 # Extraer nombre del dispositivo del source
                 source = fs.get("source", "")
                 dev_name = os.path.basename(source) if source.startswith("/dev/") else source
@@ -131,16 +131,23 @@ def unmount_device(device_name):
     # Buscar el mountpoint correspondiente
     mountpoint = None
     for usb in get_mounted_usbs():
-        if usb["device"] == clean_name or usb["mountpoint"].endswith(f"usb-{clean_name}"):
+        if usb["device"] == clean_name or \
+           usb["mountpoint"].endswith(f"usb-{clean_name}") or \
+           usb["mountpoint"].endswith(f"/{clean_name}"):
             mountpoint = usb["mountpoint"]
             break
 
     if not mountpoint:
-        # Intentar construir el path directamente
-        candidate = os.path.join(MOUNT_BASE, f"usb-{clean_name}")
-        if os.path.ismount(candidate):
-            mountpoint = candidate
-        else:
+        # Intentar construir el path directamente (por label o por usb-device)
+        for candidate in [
+            os.path.join(MOUNT_BASE, clean_name),
+            os.path.join(MOUNT_BASE, f"usb-{clean_name}"),
+        ]:
+            if os.path.ismount(candidate):
+                mountpoint = candidate
+                break
+
+        if not mountpoint:
             return False, f"Dispositivo '{clean_name}' no encontrado o no montado"
 
     # Verificar que el mountpoint está bajo MOUNT_BASE (seguridad)
