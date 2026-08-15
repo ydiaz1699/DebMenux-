@@ -548,6 +548,13 @@ cli_list() {
 
 cli_export() {
     local output="${1:-/tmp/usb-automount-backup.tar.gz}"
+
+    # Verificar que podemos leer los archivos de config
+    if [[ ! -r "$CONFIG_FILE" ]]; then
+        echo "❌ No se puede leer $CONFIG_FILE (¿permisos? usa sudo)"
+        return 1
+    fi
+
     local tmp_dir
     tmp_dir=$(mktemp -d /tmp/usb-automount-export.XXXXXX)
 
@@ -583,6 +590,12 @@ EOF
 cli_import() {
     local input="${1:-}"
 
+    # Requiere root para escribir en /etc
+    if [[ "$(id -u)" -ne 0 ]]; then
+        echo "❌ --import requiere privilegios de root (usa sudo)"
+        return 1
+    fi
+
     if [[ -z "$input" || ! -f "$input" ]]; then
         echo "❌ Uso: usb-automount.sh --import <archivo.tar.gz>"
         echo "   Genera uno con: usb-automount.sh --export [ruta]"
@@ -609,19 +622,31 @@ cli_import() {
     # Backup de config actual antes de sobreescribir
     [[ -f "$CONFIG_FILE" ]] && cp "$CONFIG_FILE" "${CONFIG_FILE}.pre-import.bak"
 
-    # Restaurar
-    cp "$tmp_dir/usb-automount.conf" "$CONFIG_FILE"
+    # Restaurar config principal
+    if ! cp "$tmp_dir/usb-automount.conf" "$CONFIG_FILE"; then
+        echo "❌ No se pudo escribir $CONFIG_FILE (¿permisos/disco?)"
+        rm -rf "$tmp_dir"
+        return 1
+    fi
     chmod 644 "$CONFIG_FILE"
     echo "✅ Restaurado: $CONFIG_FILE"
 
+    # Restaurar whitelist
     if [[ -f "$tmp_dir/whitelist.conf" ]]; then
-        cp "$tmp_dir/whitelist.conf" "/etc/usb-automount-whitelist.conf"
-        echo "✅ Restaurado: /etc/usb-automount-whitelist.conf"
+        if cp "$tmp_dir/whitelist.conf" "/etc/usb-automount-whitelist.conf"; then
+            echo "✅ Restaurado: /etc/usb-automount-whitelist.conf"
+        else
+            echo "⚠️  No se pudo restaurar whitelist.conf"
+        fi
     fi
 
+    # Restaurar blacklist
     if [[ -f "$tmp_dir/blacklist.conf" ]]; then
-        cp "$tmp_dir/blacklist.conf" "/etc/usb-automount-blacklist.conf"
-        echo "✅ Restaurado: /etc/usb-automount-blacklist.conf"
+        if cp "$tmp_dir/blacklist.conf" "/etc/usb-automount-blacklist.conf"; then
+            echo "✅ Restaurado: /etc/usb-automount-blacklist.conf"
+        else
+            echo "⚠️  No se pudo restaurar blacklist.conf"
+        fi
     fi
 
     # Mostrar info del export
