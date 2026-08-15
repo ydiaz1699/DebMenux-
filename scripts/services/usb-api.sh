@@ -93,7 +93,9 @@ def get_mounted_usbs():
         data = json.loads(result.stdout)
         for fs in data.get("filesystems", []):
             target = fs.get("target", "")
-            if target.startswith(MOUNT_BASE):
+            # Solo listar subdirectorios usb-* dentro de MOUNT_BASE
+            # Excluir el propio MOUNT_BASE (es el disco del sistema, no un USB)
+            if target.startswith(MOUNT_BASE + "/usb-"):
                 # Extraer nombre del dispositivo del source
                 source = fs.get("source", "")
                 dev_name = os.path.basename(source) if source.startswith("/dev/") else source
