@@ -178,6 +178,12 @@ register_to_catalog() {
     # ── Generar .env.example (secretos reemplazados) ──────────
     _generate_env_example "$target_dir" "$svc_dir"
 
+    # ── Generar guía placeholder (si no existe) ───────────────
+    _generate_guide_placeholder "$target_dir" "$svc_dir"
+
+    # ── Notificar via ntfy ────────────────────────────────────
+    _notify_catalog_registration
+
     msg_ok "📋 ${APP} registrado en catálogo (${target_dir})"
 }
 
@@ -281,7 +287,116 @@ _generate_env_example() {
 }
 
 # ==============================================================================
-# SECCIÓN 4: CONSULTA DE CATÁLOGO
+# SECCIÓN 4: GUÍA PLACEHOLDER (cascada)
+# ==============================================================================
+
+# Generar guía operativa placeholder si no existe
+_generate_guide_placeholder() {
+    local target_dir="$1"
+    local svc_dir="$2"
+
+    local docs_dir="${INTEGRATION_DOTFILES_DIR}/docs/services"
+    local guide_file="${docs_dir}/${APP_ID}-guide.md"
+
+    # Solo generar si la integración está habilitada y el dir de docs existe
+    if [[ -z "$INTEGRATION_DOTFILES_DIR" ]]; then
+        return 0
+    fi
+
+    # No sobreescribir guías existentes
+    if [[ -f "$guide_file" ]]; then
+        return 0
+    fi
+
+    mkdir -p "$docs_dir"
+
+    local port_main="${PORT_WEB:-${PORT_MQTT:-${PORT_ADMIN:-0}}}"
+
+    cat > "$guide_file" <<EOF
+# ${APP} — Guía Operativa
+
+> **Puerto:** ${port_main}
+> **Imagen:** ${IMAGE}
+> **Red:** ${NETWORKS[*]:-bridge}
+> **Instalado por:** DebMenux (\`scripts/services/${APP_ID}.sh\`)
+> **Tipo:** Docker container
+
+---
+
+## Qué es
+
+_(Completar: qué hace este servicio y por qué está en el NAS)_
+
+---
+
+## Instalación
+
+\`\`\`bash
+debmenu install ${APP_ID}
+# O manualmente:
+mkdir -p \$dkco/${APP_ID}/data
+dk ${APP_ID} && svc up ${APP_ID}
+\`\`\`
+
+---
+
+## Configuración
+
+_(Completar: parámetros importantes del .env, config files especiales)_
+
+---
+
+## Backup y recuperación
+
+\`\`\`bash
+svc backup ${APP_ID}
+\`\`\`
+
+_(Completar: qué respaldar, frecuencia, cómo restaurar)_
+
+---
+
+## Troubleshooting
+
+_(Completar: errores encontrados y cómo se resolvieron)_
+
+---
+
+> **Nota:** Guía generada automáticamente por DebMenux al instalar \`${APP_ID}\`.
+> Completar con información operativa real según se use el servicio.
+> Generado: $(date -u +"%Y-%m-%d")
+EOF
+
+    msg_ok "📝 Guía placeholder creada: ${guide_file}"
+}
+
+# ==============================================================================
+# SECCIÓN 5: NOTIFICACIONES (cascada)
+# ==============================================================================
+
+# Notificar que se registró un servicio (si ntfy disponible)
+_notify_catalog_registration() {
+    local ntfy_url="${NTFY_URL:-}"
+
+    # Intentar cargar NTFY_URL de /etc/environment si no está en el entorno
+    if [[ -z "$ntfy_url" && -f /etc/environment ]]; then
+        ntfy_url=$(grep -m1 "^NTFY_URL=" /etc/environment 2>/dev/null | cut -d= -f2)
+    fi
+
+    [[ -z "$ntfy_url" ]] && return 0
+
+    local port_main="${PORT_WEB:-${PORT_MQTT:-${PORT_ADMIN:-0}}}"
+
+    curl -s --max-time 5 \
+        -H "Title: 📋 Servicio registrado: ${APP}" \
+        -H "Tags: books,whale" \
+        -d "DebMenux registró ${APP_ID} en el catálogo. Puerto: ${port_main}. Ficha + guía generadas." \
+        "${ntfy_url}/docker" \
+        >/dev/null 2>&1 || true
+}
+
+# ==============================================================================
+# SECCIÓN 6: CONSULTA DE CATÁLOGO
 # ==============================================================================
 
 # Verificar si un servicio está registrado en el catálogo
@@ -292,7 +407,7 @@ is_registered() {
 }
 
 # ==============================================================================
-# SECCIÓN 5: INICIALIZACIÓN
+# SECCIÓN 7: INICIALIZACIÓN
 # ==============================================================================
 
 # Auto-cargar integración al hacer source
