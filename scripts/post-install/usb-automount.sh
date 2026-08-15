@@ -50,11 +50,18 @@ BLACKLIST_DEST="/etc/usb-automount-blacklist.conf"
 # Validar que un valor es una ruta absoluta segura
 _validate_path() {
     local path="$1"
-    # Debe empezar con / y no contener caracteres peligrosos
+    # Debe empezar con / y solo contener: letras, números, /, _, ., -
+    # NO permite: espacios, acentos, |, ;, $, etc. (por seguridad en sed/mount)
     if [[ ! "$path" =~ ^/[a-zA-Z0-9/_.-]+$ ]]; then
         return 1
     fi
     return 0
+}
+
+# Mensaje de error para ruta inválida (explica restricciones)
+_path_error_msg() {
+    local path="$1"
+    echo -e "\nRuta inválida: ${path}\n\nDebe ser ruta absoluta sin espacios ni caracteres\nespeciales. Permitidos: letras, números, / _ . -\n\nEjemplos válidos:\n  /media\n  /NAS/USB\n  /mnt/usb-drives"
 }
 
 # Validar que un valor es numérico
@@ -128,7 +135,7 @@ _interactive_config() {
         # Validar ruta
         if ! _validate_path "$_CFG_MOUNT_BASE"; then
             dialog --backtitle "DebMenux" --title " ❌ Error " \
-                --msgbox "\nRuta inválida: $_CFG_MOUNT_BASE\n\nDebe ser ruta absoluta (ej. /media, /NAS/USB)." 10 50
+                --msgbox "$(_path_error_msg "$_CFG_MOUNT_BASE")" 14 55
             rm -f "$TEMP_FILE"
             return 1
         fi
@@ -396,7 +403,9 @@ edit_config() {
     msg_ok "Configuración actualizada ⚙️"
 
     # Crear directorio si cambió la ruta
-    mkdir -p "$_CFG_MOUNT_BASE" 2>/dev/null
+    if ! mkdir -p "$_CFG_MOUNT_BASE" 2>/dev/null; then
+        msg_warn "No se pudo crear $_CFG_MOUNT_BASE (verificar permisos/disco)"
+    fi
 
     # Recargar udev (por si cambiaron opciones que afectan el comportamiento)
     msg_info "Recargando udev"
@@ -435,6 +444,116 @@ _show_summary() {
     echo -e "${TAB}  Udev:       ${DIM}${UDEV_DEST}${CL}"
     echo -e "${TAB}  Whitelist:  ${DIM}${WHITELIST_DEST}${CL}"
     echo -e "${TAB}  Blacklist:  ${DIM}${BLACKLIST_DEST}${CL}"
+    echo -e ""
+}
+
+# ==============================================================================
+# DESMONTAJE FORZADO / LIMPIEZA MANUAL
+# ==============================================================================
+
+force_cleanup() {
+    msg_title "🧹 Desmontaje Forzado y Limpieza"
+
+    if [[ ! -f "$SCRIPT_DEST" ]]; then
+        msg_error "USB Automount no está instalado."
+        return 1
+    fi
+
+    # Obtener mount_base de config
+    local mount_base="/media"
+    if [[ -f "$CONFIG_DEST" ]]; then
+        mount_base=$(grep "^MOUNT_BASE=" "$CONFIG_DEST" 2>/dev/null | cut -d'"' -f2)
+        mount_base="${mount_base:-/media}"
+    fi
+
+    # Listar USBs montados y huérfanos
+    local old_nullglob
+    old_nullglob=$(shopt -p nullglob 2>/dev/null || true)
+    shopt -s nullglob
+
+    local mounted_dirs=()
+    local orphan_dirs=()
+
+    for dir in "$mount_base"/usb-*; do
+        [[ -d "$dir" ]] || continue
+        if mountpoint -q "$dir" 2>/dev/null; then
+            mounted_dirs+=("$dir")
+        else
+            orphan_dirs+=("$dir")
+        fi
+    done
+
+    eval "$old_nullglob" 2>/dev/null || true
+
+    local total=$(( ${#mounted_dirs[@]} + ${#orphan_dirs[@]} ))
+
+    if [[ $total -eq 0 ]]; then
+        msg_ok "No hay puntos de montaje USB activos ni huérfanos 🧹"
+        return 0
+    fi
+
+    # Mostrar estado
+    echo -e "${TAB}${BOLD}📋 Puntos de montaje encontrados:${CL}"
+    echo -e ""
+
+    for dir in "${mounted_dirs[@]}"; do
+        local dev_name
+        dev_name=$(basename "$dir" | sed 's/usb-//')
+        local fs_type
+        fs_type=$(findmnt -n -o FSTYPE "$dir" 2>/dev/null || echo "?")
+        echo -e "${TAB}  🟢 ${BOLD}${dir}${CL} (montado, ${fs_type})"
+    done
+
+    for dir in "${orphan_dirs[@]}"; do
+        echo -e "${TAB}  🟡 ${BOLD}${dir}${CL} (huérfano — no montado)"
+    done
+
+    echo -e ""
+
+    # Confirmar
+    if ! confirm "¿Desmontar TODOS y limpiar directorios? (${total} encontrados)"; then
+        return 0
+    fi
+
+    # Desmontar los que están activos
+    local failed=0
+    for dir in "${mounted_dirs[@]}"; do
+        msg_info "Desmontando ${dir}"
+        if umount "$dir" 2>/dev/null; then
+            msg_ok "Desmontado: ${dir}"
+        elif umount -f "$dir" 2>/dev/null; then
+            msg_ok "Desmontado (forzado): ${dir}"
+        elif umount -l "$dir" 2>/dev/null; then
+            msg_warn "Desmontado (lazy): ${dir} — verificar que no queden procesos"
+        else
+            msg_error "No se pudo desmontar: ${dir}"
+            ((failed++))
+            continue
+        fi
+        # Limpiar directorio
+        if [[ -d "$dir" ]] && [[ -z "$(ls -A "$dir" 2>/dev/null)" ]]; then
+            rmdir "$dir" 2>/dev/null
+        fi
+    done
+
+    # Limpiar huérfanos
+    for dir in "${orphan_dirs[@]}"; do
+        if [[ -z "$(ls -A "$dir" 2>/dev/null)" ]]; then
+            rmdir "$dir" 2>/dev/null && \
+                msg_ok "Huérfano eliminado: ${dir}" || \
+                msg_warn "No se pudo eliminar: ${dir}"
+        else
+            msg_warn "Huérfano no vacío (no se elimina): ${dir}"
+        fi
+    done
+
+    echo -e ""
+    if [[ $failed -eq 0 ]]; then
+        msg_success "🧹 Limpieza completada — todo limpio"
+    else
+        msg_warn "Limpieza completada con ${failed} error(es)"
+        echo -e "${TAB}${DIM}Revisa: lsof +D ${mount_base} (procesos usando los mounts)${CL}"
+    fi
     echo -e ""
 }
 

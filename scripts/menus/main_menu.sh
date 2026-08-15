@@ -352,13 +352,14 @@ show_post_install_menu() {
     dialog --clear \
         --backtitle "🐧 DebMenux — Post-Instalación" \
         --title " ⚙️ Optimización Post-Instalación " \
-        --menu "\nConfigura y optimiza tu servidor:" 18 60 7 \
+        --menu "\nConfigura y optimiza tu servidor:" 20 60 8 \
         1 "🔌 Automontaje USB (instalar/configurar)" \
         2 "🔧 Editar configuración USB (sin reinstalar)" \
         3 "📊 Estado del Automontaje USB" \
-        4 "⏏️  Desinstalar Automontaje USB" \
-        5 "🐳 Instalar Docker" \
-        6 "🐧 Optimizar Debian (swap, sysctl, zram)" \
+        4 "🧹 Desmontaje forzado / limpieza USB" \
+        5 "⏏️  Desinstalar Automontaje USB" \
+        6 "🐳 Instalar Docker" \
+        7 "🐧 Optimizar Debian (swap, sysctl, zram)" \
         0 "↩️  Volver al Menú Principal" 2>"$TEMP_FILE"
 
     local exit_status=$?
@@ -397,13 +398,21 @@ show_post_install_menu() {
         4)
             clear
             source "${DEBMENUX_SCRIPTS}/post-install/usb-automount.sh"
+            force_cleanup
+            echo -e "\n${TAB}Presiona ENTER para continuar..."
+            read -r
+            show_post_install_menu
+            ;;
+        5)
+            clear
+            source "${DEBMENUX_SCRIPTS}/post-install/usb-automount.sh"
             uninstall_service
             echo -e "\n${TAB}Presiona ENTER para continuar..."
             read -r
             show_post_install_menu
             ;;
-        5) show_placeholder "🐳 Instalar Docker" ; show_post_install_menu ;;
-        6) show_placeholder "🐧 Optimizar Debian" ; show_post_install_menu ;;
+        6) show_placeholder "🐳 Instalar Docker" ; show_post_install_menu ;;
+        7) show_placeholder "🐧 Optimizar Debian" ; show_post_install_menu ;;
         0) return ;;
     esac
 }
