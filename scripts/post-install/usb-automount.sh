@@ -44,6 +44,192 @@ WHITELIST_DEST="/etc/usb-automount-whitelist.conf"
 BLACKLIST_DEST="/etc/usb-automount-blacklist.conf"
 
 # ==============================================================================
+# HELPERS DE VALIDACIÓN
+# ==============================================================================
+
+# Validar que un valor es una ruta absoluta segura
+_validate_path() {
+    local path="$1"
+    # Debe empezar con / y no contener caracteres peligrosos
+    if [[ ! "$path" =~ ^/[a-zA-Z0-9/_.-]+$ ]]; then
+        return 1
+    fi
+    return 0
+}
+
+# Validar que un valor es numérico
+_validate_numeric() {
+    local value="$1"
+    [[ "$value" =~ ^[0-9]+$ ]]
+}
+
+# Ejecutar paso con verificación de error
+_run_step() {
+    local description="$1"
+    shift
+    msg_info "$description"
+    if "$@"; then
+        msg_ok "$description ✅"
+        return 0
+    else
+        msg_error "Falló: $description"
+        return 1
+    fi
+}
+
+# ==============================================================================
+# CONFIGURACIÓN INTERACTIVA (compartida por install y edit)
+# ==============================================================================
+
+# Lee la configuración actual de CONFIG_DEST si existe (para edit_config)
+_load_current_config() {
+    local mount_base_default="/media"
+    local uid_default="1000"
+    local gid_default="1000"
+    local whitelist_default="false"
+    local blacklist_default="false"
+    local notifications_default="false"
+    local loglevel_default="INFO"
+
+    if [[ -f "$CONFIG_DEST" ]]; then
+        mount_base_default=$(grep "^MOUNT_BASE=" "$CONFIG_DEST" 2>/dev/null | cut -d'"' -f2)
+        uid_default=$(grep "^DEFAULT_UID=" "$CONFIG_DEST" 2>/dev/null | cut -d= -f2)
+        gid_default=$(grep "^DEFAULT_GID=" "$CONFIG_DEST" 2>/dev/null | cut -d= -f2)
+        whitelist_default=$(grep "^WHITELIST_ENABLED=" "$CONFIG_DEST" 2>/dev/null | cut -d'"' -f2)
+        blacklist_default=$(grep "^BLACKLIST_ENABLED=" "$CONFIG_DEST" 2>/dev/null | cut -d'"' -f2)
+        notifications_default=$(grep "^ENABLE_NOTIFICATIONS=" "$CONFIG_DEST" 2>/dev/null | cut -d'"' -f2)
+        loglevel_default=$(grep "^LOG_LEVEL=" "$CONFIG_DEST" 2>/dev/null | cut -d'"' -f2)
+    fi
+
+    # Exportar como variables para el dialog
+    _CFG_MOUNT_BASE="${mount_base_default:-/media}"
+    _CFG_UID="${uid_default:-1000}"
+    _CFG_GID="${gid_default:-1000}"
+    _CFG_WHITELIST="${whitelist_default:-false}"
+    _CFG_BLACKLIST="${blacklist_default:-false}"
+    _CFG_NOTIFICATIONS="${notifications_default:-false}"
+    _CFG_LOGLEVEL="${loglevel_default:-INFO}"
+}
+
+# Mostrar dialogs de configuración. Usa _CFG_* como defaults.
+# Escribe resultados en _CFG_* variables.
+_interactive_config() {
+    if command -v dialog &>/dev/null; then
+        local TEMP_FILE
+        TEMP_FILE=$(mktemp)
+
+        # Ruta de montaje
+        dialog --clear \
+            --backtitle "🐧 DebMenux — Automontaje USB" \
+            --title " 📁 Ruta de Montaje " \
+            --inputbox "\n¿Dónde montar los dispositivos USB?\n\nCada USB se montará en: <ruta>/usb-<dispositivo>\n" 12 55 "$_CFG_MOUNT_BASE" 2>"$TEMP_FILE"
+        [[ $? -eq 0 ]] && _CFG_MOUNT_BASE=$(<"$TEMP_FILE")
+
+        # Validar ruta
+        if ! _validate_path "$_CFG_MOUNT_BASE"; then
+            dialog --backtitle "DebMenux" --title " ❌ Error " \
+                --msgbox "\nRuta inválida: $_CFG_MOUNT_BASE\n\nDebe ser ruta absoluta (ej. /media, /NAS/USB)." 10 50
+            rm -f "$TEMP_FILE"
+            return 1
+        fi
+
+        # UID
+        dialog --clear \
+            --backtitle "🐧 DebMenux — Automontaje USB" \
+            --title " 👤 Permisos " \
+            --inputbox "\nUID del usuario para permisos de montaje\n(FAT32, exFAT, NTFS):\n\nUsa 'id <usuario>' para verificar." 12 55 "$_CFG_UID" 2>"$TEMP_FILE"
+        [[ $? -eq 0 ]] && _CFG_UID=$(<"$TEMP_FILE")
+
+        # Validar UID numérico
+        if ! _validate_numeric "$_CFG_UID"; then
+            dialog --backtitle "DebMenux" --title " ❌ Error " \
+                --msgbox "\nUID inválido: $_CFG_UID\n\nDebe ser un número (ej. 0, 1000)." 9 50
+            rm -f "$TEMP_FILE"
+            return 1
+        fi
+
+        # GID
+        dialog --clear \
+            --backtitle "🐧 DebMenux — Automontaje USB" \
+            --title " 👤 Permisos " \
+            --inputbox "\nGID del grupo para permisos de montaje:" 10 55 "$_CFG_GID" 2>"$TEMP_FILE"
+        [[ $? -eq 0 ]] && _CFG_GID=$(<"$TEMP_FILE")
+
+        # Validar GID numérico
+        if ! _validate_numeric "$_CFG_GID"; then
+            dialog --backtitle "DebMenux" --title " ❌ Error " \
+                --msgbox "\nGID inválido: $_CFG_GID\n\nDebe ser un número (ej. 0, 1000)." 9 50
+            rm -f "$TEMP_FILE"
+            return 1
+        fi
+
+        # Opciones de seguridad (pre-seleccionar las activas)
+        local wl_flag="off" bl_flag="off" nt_flag="off" db_flag="off"
+        [[ "$_CFG_WHITELIST" == "true" ]] && wl_flag="on"
+        [[ "$_CFG_BLACKLIST" == "true" ]] && bl_flag="on"
+        [[ "$_CFG_NOTIFICATIONS" == "true" ]] && nt_flag="on"
+        [[ "$_CFG_LOGLEVEL" == "DEBUG" ]] && db_flag="on"
+
+        local security_choices
+        security_choices=$(dialog --clear \
+            --backtitle "🐧 DebMenux — Automontaje USB" \
+            --title " 🛡️ Seguridad " \
+            --checklist "\nOpciones de seguridad:" 14 55 4 \
+            "whitelist" "Solo montar USBs autorizados" "$wl_flag" \
+            "blacklist" "Bloquear USBs específicos" "$bl_flag" \
+            "notifications" "Notificaciones de escritorio" "$nt_flag" \
+            "debug" "Logging en modo DEBUG" "$db_flag" \
+            3>&1 1>&2 2>&3)
+
+        # Resetear y re-parsear
+        _CFG_WHITELIST="false"
+        _CFG_BLACKLIST="false"
+        _CFG_NOTIFICATIONS="false"
+        _CFG_LOGLEVEL="INFO"
+        [[ "$security_choices" == *"whitelist"* ]] && _CFG_WHITELIST="true"
+        [[ "$security_choices" == *"blacklist"* ]] && _CFG_BLACKLIST="true"
+        [[ "$security_choices" == *"notifications"* ]] && _CFG_NOTIFICATIONS="true"
+        [[ "$security_choices" == *"debug"* ]] && _CFG_LOGLEVEL="DEBUG"
+
+        rm -f "$TEMP_FILE"
+        clear
+    else
+        # Fallback sin dialog: mostrar valores actuales
+        echo -e ""
+        echo -e "${TAB}${BOLD}📋 Configuración actual:${CL}"
+        echo -e "${TAB}  Ruta de montaje: ${BL}${_CFG_MOUNT_BASE}${CL}"
+        echo -e "${TAB}  UID/GID:         ${BL}${_CFG_UID}:${_CFG_GID}${CL}"
+        echo -e "${TAB}  Whitelist:       ${_CFG_WHITELIST}"
+        echo -e "${TAB}  Blacklist:       ${_CFG_BLACKLIST}"
+        echo -e "${TAB}  Notificaciones:  ${_CFG_NOTIFICATIONS}"
+        echo -e "${TAB}  Log level:       ${_CFG_LOGLEVEL}"
+        echo -e ""
+        echo -e "${TAB}${DIM}(Sin dialog — usando valores actuales/por defecto)${CL}"
+        echo -e ""
+    fi
+
+    return 0
+}
+
+# Generar /etc/usb-automount.conf desde las variables _CFG_*
+_write_config() {
+    # Backup de config existente (si es reinstalación)
+    if [[ -f "$CONFIG_DEST" ]]; then
+        cp "$CONFIG_DEST" "${CONFIG_DEST}.bak" 2>/dev/null || true
+    fi
+
+    sed -e "s|^MOUNT_BASE=.*|MOUNT_BASE=\"${_CFG_MOUNT_BASE}\"|" \
+        -e "s|^DEFAULT_UID=.*|DEFAULT_UID=${_CFG_UID}|" \
+        -e "s|^DEFAULT_GID=.*|DEFAULT_GID=${_CFG_GID}|" \
+        -e "s|^WHITELIST_ENABLED=.*|WHITELIST_ENABLED=\"${_CFG_WHITELIST}\"|" \
+        -e "s|^BLACKLIST_ENABLED=.*|BLACKLIST_ENABLED=\"${_CFG_BLACKLIST}\"|" \
+        -e "s|^ENABLE_NOTIFICATIONS=.*|ENABLE_NOTIFICATIONS=\"${_CFG_NOTIFICATIONS}\"|" \
+        -e "s|^LOG_LEVEL=.*|LOG_LEVEL=\"${_CFG_LOGLEVEL}\"|" \
+        "$TEMPLATE_DIR/usb-automount.conf" > "$CONFIG_DEST"
+    chmod 644 "$CONFIG_DEST"
+}
+
+# ==============================================================================
 # INSTALACIÓN
 # ==============================================================================
 
@@ -52,8 +238,6 @@ install_service() {
     if [[ -f "$SCRIPT_DEST" && -f "$UDEV_DEST" ]]; then
         msg_warn "⚠️  USB Automount ya está instalado."
         if ! confirm "¿Reinstalar/actualizar?"; then
-            msg_info "Instalación cancelada"
-            stop_spinner
             return 0
         fi
     fi
@@ -84,86 +268,25 @@ install_service() {
     fi
 
     # ── Paso 2: Configuración interactiva ─────────────────────
-    local mount_base="/media"
-    local default_uid default_gid
-    default_uid=$(id -u "${SUDO_USER:-root}" 2>/dev/null || echo 1000)
-    default_gid=$(id -g "${SUDO_USER:-root}" 2>/dev/null || echo 1000)
-    local enable_whitelist="false"
-    local enable_blacklist="false"
-    local enable_notifications="false"
-    local log_level="INFO"
-
-    # Dialog para configuración
-    if command -v dialog &>/dev/null; then
-        local TEMP_FILE
-        TEMP_FILE=$(mktemp)
-
-        # Ruta de montaje
-        dialog --clear \
-            --backtitle "🐧 DebMenux — Automontaje USB" \
-            --title " 📁 Ruta de Montaje " \
-            --inputbox "\n¿Dónde montar los dispositivos USB?\n\nCada USB se montará en: <ruta>/usb-<dispositivo>\n" 12 55 "$mount_base" 2>"$TEMP_FILE"
-        [[ $? -eq 0 ]] && mount_base=$(<"$TEMP_FILE")
-
-        # UID/GID
-        dialog --clear \
-            --backtitle "🐧 DebMenux — Automontaje USB" \
-            --title " 👤 Permisos " \
-            --inputbox "\nUID del usuario para permisos de montaje\n(FAT32, exFAT, NTFS):\n\nUsa 'id <usuario>' para verificar." 12 55 "$default_uid" 2>"$TEMP_FILE"
-        [[ $? -eq 0 ]] && default_uid=$(<"$TEMP_FILE")
-
-        dialog --clear \
-            --backtitle "🐧 DebMenux — Automontaje USB" \
-            --title " 👤 Permisos " \
-            --inputbox "\nGID del grupo para permisos de montaje:" 10 55 "$default_gid" 2>"$TEMP_FILE"
-        [[ $? -eq 0 ]] && default_gid=$(<"$TEMP_FILE")
-
-        # Opciones de seguridad
-        local security_choices
-        security_choices=$(dialog --clear \
-            --backtitle "🐧 DebMenux — Automontaje USB" \
-            --title " 🛡️ Seguridad " \
-            --checklist "\nOpciones de seguridad:" 14 55 4 \
-            "whitelist" "Solo montar USBs autorizados" off \
-            "blacklist" "Bloquear USBs específicos" off \
-            "notifications" "Notificaciones de escritorio" off \
-            "debug" "Logging en modo DEBUG" off \
-            3>&1 1>&2 2>&3)
-
-        [[ "$security_choices" == *"whitelist"* ]] && enable_whitelist="true"
-        [[ "$security_choices" == *"blacklist"* ]] && enable_blacklist="true"
-        [[ "$security_choices" == *"notifications"* ]] && enable_notifications="true"
-        [[ "$security_choices" == *"debug"* ]] && log_level="DEBUG"
-
-        rm -f "$TEMP_FILE"
-        clear
-    else
-        # Fallback sin dialog: usar valores por defecto
-        msg_info "Usando configuración por defecto (sin dialog)"
-        stop_spinner
-        echo -e "${TAB}  Ruta de montaje: ${BL}${mount_base}${CL}"
-        echo -e "${TAB}  UID/GID: ${BL}${default_uid}:${default_gid}${CL}"
-        echo -e ""
+    _load_current_config
+    if ! _interactive_config; then
+        msg_error "Configuración cancelada o inválida"
+        return 1
     fi
 
     # ── Paso 3: Copiar script principal ───────────────────────
     msg_info "Instalando script de automontaje"
-    cp "$TEMPLATE_DIR/usb-automount.sh" "$SCRIPT_DEST"
+    if ! cp "$TEMPLATE_DIR/usb-automount.sh" "$SCRIPT_DEST"; then
+        msg_error "No se pudo copiar script a $SCRIPT_DEST (¿disco lleno?)"
+        return 1
+    fi
     chmod +x "$SCRIPT_DEST"
     chown root:root "$SCRIPT_DEST"
     msg_ok "Script instalado en $SCRIPT_DEST 📄"
 
     # ── Paso 4: Generar configuración ─────────────────────────
     msg_info "Generando configuración"
-    sed -e "s|^MOUNT_BASE=.*|MOUNT_BASE=\"${mount_base}\"|" \
-        -e "s|^DEFAULT_UID=.*|DEFAULT_UID=${default_uid}|" \
-        -e "s|^DEFAULT_GID=.*|DEFAULT_GID=${default_gid}|" \
-        -e "s|^WHITELIST_ENABLED=.*|WHITELIST_ENABLED=\"${enable_whitelist}\"|" \
-        -e "s|^BLACKLIST_ENABLED=.*|BLACKLIST_ENABLED=\"${enable_blacklist}\"|" \
-        -e "s|^ENABLE_NOTIFICATIONS=.*|ENABLE_NOTIFICATIONS=\"${enable_notifications}\"|" \
-        -e "s|^LOG_LEVEL=.*|LOG_LEVEL=\"${log_level}\"|" \
-        "$TEMPLATE_DIR/usb-automount.conf" > "$CONFIG_DEST"
-    chmod 644 "$CONFIG_DEST"
+    _write_config
     msg_ok "Configuración generada en $CONFIG_DEST ⚙️"
 
     # ── Paso 5: Copiar whitelist/blacklist ────────────────────
@@ -176,15 +299,18 @@ install_service() {
 
     # ── Paso 6: Instalar regla udev ──────────────────────────
     msg_info "Instalando regla udev"
-    cp "$TEMPLATE_DIR/99-usb-automount.rules" "$UDEV_DEST"
+    if ! cp "$TEMPLATE_DIR/99-usb-automount.rules" "$UDEV_DEST"; then
+        msg_error "No se pudo copiar regla udev"
+        return 1
+    fi
     chmod 644 "$UDEV_DEST"
     msg_ok "Regla udev instalada 🔌"
 
     # ── Paso 7: Instalar servicios systemd ────────────────────
     msg_info "Configurando servicios systemd"
-    cp "$TEMPLATE_DIR/usb-automount@.service" "$SERVICE_DEST"
-    cp "$TEMPLATE_DIR/usb-automount-cleanup.service" "$CLEANUP_SERVICE_DEST"
-    cp "$TEMPLATE_DIR/usb-automount-cleanup.timer" "$CLEANUP_TIMER_DEST"
+    cp "$TEMPLATE_DIR/usb-automount@.service" "$SERVICE_DEST" || { msg_error "Falló copia de service"; return 1; }
+    cp "$TEMPLATE_DIR/usb-automount-cleanup.service" "$CLEANUP_SERVICE_DEST" || { msg_error "Falló copia de cleanup service"; return 1; }
+    cp "$TEMPLATE_DIR/usb-automount-cleanup.timer" "$CLEANUP_TIMER_DEST" || { msg_error "Falló copia de timer"; return 1; }
     chmod 644 "$SERVICE_DEST" "$CLEANUP_SERVICE_DEST" "$CLEANUP_TIMER_DEST"
 
     systemctl daemon-reload
@@ -194,14 +320,14 @@ install_service() {
 
     # ── Paso 8: Instalar logrotate ────────────────────────────
     msg_info "Configurando rotación de logs"
-    cp "$TEMPLATE_DIR/usb-automount-logrotate" "$LOGROTATE_DEST"
+    cp "$TEMPLATE_DIR/usb-automount-logrotate" "$LOGROTATE_DEST" || { msg_error "Falló copia de logrotate"; return 1; }
     chmod 644 "$LOGROTATE_DEST"
     msg_ok "Logrotate configurado 📋"
 
     # ── Paso 9: Crear directorio de montaje ───────────────────
     msg_info "Creando directorio base de montaje"
-    mkdir -p "$mount_base"
-    msg_ok "Directorio $mount_base creado 📁"
+    mkdir -p "$_CFG_MOUNT_BASE"
+    msg_ok "Directorio $_CFG_MOUNT_BASE creado 📁"
 
     # ── Paso 10: Recargar udev ────────────────────────────────
     msg_info "Recargando reglas udev"
@@ -210,7 +336,7 @@ install_service() {
     msg_ok "Reglas udev recargadas 🔄"
 
     # ── Paso 11: Instalar notify-send si se habilitó ──────────
-    if [[ "$enable_notifications" == "true" ]]; then
+    if [[ "$_CFG_NOTIFICATIONS" == "true" ]]; then
         if ! command -v notify-send &>/dev/null; then
             msg_info "Instalando libnotify-bin para notificaciones"
             apt-get install -y libnotify-bin > /dev/null 2>&1 && \
@@ -220,20 +346,87 @@ install_service() {
     fi
 
     # ── Mostrar resumen ───────────────────────────────────────
+    _show_summary
+
+    # ── Registrar en catálogo (scope aislado) ─────────────────
+    if declare -f register_to_catalog &>/dev/null; then
+        (
+            APP="USB AutoMount"
+            APP_ID="usb-automount"
+            IMAGE="system/udev+systemd"
+            CATEGORY="post-install"
+            NETWORKS=()
+            register_to_catalog 2>/dev/null || true
+        )
+    fi
+}
+
+# ==============================================================================
+# EDITAR CONFIGURACIÓN (sin reinstalar)
+# ==============================================================================
+
+edit_config() {
+    msg_title "🔧 Editar Configuración de Automontaje USB"
+
+    if [[ ! -f "$SCRIPT_DEST" ]]; then
+        msg_error "USB Automount no está instalado. Instálalo primero."
+        return 1
+    fi
+
+    if [[ ! -f "$CONFIG_DEST" ]]; then
+        msg_error "Archivo de configuración no encontrado: $CONFIG_DEST"
+        return 1
+    fi
+
+    # Cargar valores actuales como defaults
+    _load_current_config
+
+    echo -e "${TAB}${DIM}Valores actuales se mostrarán como defaults en el dialog.${CL}"
     echo -e ""
-    msg_success "🔌 Automontaje USB instalado exitosamente!"
+
+    # Mostrar dialog con valores pre-cargados
+    if ! _interactive_config; then
+        msg_error "Edición cancelada o valores inválidos"
+        return 1
+    fi
+
+    # Guardar nueva configuración (con backup)
+    msg_info "Guardando configuración"
+    _write_config
+    msg_ok "Configuración actualizada ⚙️"
+
+    # Crear directorio si cambió la ruta
+    mkdir -p "$_CFG_MOUNT_BASE" 2>/dev/null
+
+    # Recargar udev (por si cambiaron opciones que afectan el comportamiento)
+    msg_info "Recargando udev"
+    udevadm control --reload-rules 2>/dev/null || true
+    msg_ok "Reglas recargadas 🔄"
+
+    echo -e ""
+    echo -e "${TAB}${DIM}Backup de config anterior: ${CONFIG_DEST}.bak${CL}"
+    _show_summary
+}
+
+# ==============================================================================
+# RESUMEN
+# ==============================================================================
+
+_show_summary() {
+    echo -e ""
+    msg_success "🔌 Automontaje USB — configuración activa"
     echo -e ""
     echo -e "${TAB}${BOLD}📋 Configuración:${CL}"
-    echo -e "${TAB}  Ruta de montaje:   ${BL}${mount_base}/usb-<dispositivo>${CL}"
-    echo -e "${TAB}  UID/GID:           ${BL}${default_uid}:${default_gid}${CL}"
-    echo -e "${TAB}  Whitelist:         $(if [[ "$enable_whitelist" == "true" ]]; then echo "${GN}habilitada${CL}"; else echo "${DIM}deshabilitada${CL}"; fi)"
-    echo -e "${TAB}  Blacklist:         $(if [[ "$enable_blacklist" == "true" ]]; then echo "${GN}habilitada${CL}"; else echo "${DIM}deshabilitada${CL}"; fi)"
-    echo -e "${TAB}  Notificaciones:    $(if [[ "$enable_notifications" == "true" ]]; then echo "${GN}habilitadas${CL}"; else echo "${DIM}deshabilitadas${CL}"; fi)"
-    echo -e "${TAB}  Log:               ${BL}/var/log/usb-automount.log${CL} (${log_level})"
+    echo -e "${TAB}  Ruta de montaje:   ${BL}${_CFG_MOUNT_BASE}/usb-<dispositivo>${CL}"
+    echo -e "${TAB}  UID/GID:           ${BL}${_CFG_UID}:${_CFG_GID}${CL}"
+    echo -e "${TAB}  Whitelist:         $(if [[ "$_CFG_WHITELIST" == "true" ]]; then echo "${GN}habilitada${CL}"; else echo "${DIM}deshabilitada${CL}"; fi)"
+    echo -e "${TAB}  Blacklist:         $(if [[ "$_CFG_BLACKLIST" == "true" ]]; then echo "${GN}habilitada${CL}"; else echo "${DIM}deshabilitada${CL}"; fi)"
+    echo -e "${TAB}  Notificaciones:    $(if [[ "$_CFG_NOTIFICATIONS" == "true" ]]; then echo "${GN}habilitadas${CL}"; else echo "${DIM}deshabilitadas${CL}"; fi)"
+    echo -e "${TAB}  Log:               ${BL}/var/log/usb-automount.log${CL} (${_CFG_LOGLEVEL})"
     echo -e ""
     echo -e "${TAB}${BOLD}🧪 Prueba:${CL}"
     echo -e "${TAB}  Conecta un USB y verifica:"
-    echo -e "${TAB}  ${YWB}ls ${mount_base}/usb-*${CL}"
+    echo -e "${TAB}  ${YWB}ls ${_CFG_MOUNT_BASE}/usb-*${CL}"
     echo -e "${TAB}  ${YWB}tail -f /var/log/usb-automount.log${CL}"
     echo -e ""
     echo -e "${TAB}${BOLD}📝 Archivos:${CL}"
@@ -243,17 +436,6 @@ install_service() {
     echo -e "${TAB}  Whitelist:  ${DIM}${WHITELIST_DEST}${CL}"
     echo -e "${TAB}  Blacklist:  ${DIM}${BLACKLIST_DEST}${CL}"
     echo -e ""
-
-    # Registrar en catálogo externo si integración habilitada
-    if declare -f register_to_catalog &>/dev/null; then
-        # Fake vars para el registro (no es Docker pero el hook es útil)
-        APP="USB AutoMount"
-        APP_ID="usb-automount"
-        IMAGE="system/udev+systemd"
-        CATEGORY="post-install"
-        NETWORKS=()
-        register_to_catalog 2>/dev/null || true
-    fi
 }
 
 # ==============================================================================
@@ -317,7 +499,8 @@ show_status() {
     # Obtener config
     local mount_base="/media"
     if [[ -f "$CONFIG_DEST" ]]; then
-        mount_base=$(grep "^MOUNT_BASE=" "$CONFIG_DEST" | cut -d'"' -f2)
+        mount_base=$(grep "^MOUNT_BASE=" "$CONFIG_DEST" 2>/dev/null | cut -d'"' -f2)
+        mount_base="${mount_base:-/media}"
     fi
 
     echo -e "${TAB}${BOLD}🔌 Instalación:${CL} ${GN}activa${CL}"
@@ -335,18 +518,28 @@ show_status() {
     echo -e ""
     echo -e "${TAB}${BOLD}📋 USBs montados ahora:${CL}"
     local mounted=0
+
+    # Usar nullglob para evitar iterar sobre el literal si no hay match
+    local old_nullglob
+    old_nullglob=$(shopt -p nullglob 2>/dev/null || true)
+    shopt -s nullglob
+
     for dir in "$mount_base"/usb-*; do
         if [[ -d "$dir" ]] && mountpoint -q "$dir" 2>/dev/null; then
             local dev_name
             dev_name=$(basename "$dir" | sed 's/usb-//')
             local fs_type
-            fs_type=$(findmnt -n -o FSTYPE "$dir" 2>/dev/null)
+            fs_type=$(findmnt -n -o FSTYPE "$dir" 2>/dev/null || echo "?")
             local size
-            size=$(findmnt -n -o SIZE "$dir" 2>/dev/null)
+            size=$(findmnt -n -o SIZE "$dir" 2>/dev/null || echo "?")
             echo -e "${TAB}  🟢 ${BOLD}${dev_name}${CL} → ${dir} (${fs_type}, ${size})"
             mounted=1
         fi
     done
+
+    # Restaurar nullglob
+    eval "$old_nullglob" 2>/dev/null || true
+
     if [[ $mounted -eq 0 ]]; then
         echo -e "${TAB}  ${DIM}(ninguno)${CL}"
     fi

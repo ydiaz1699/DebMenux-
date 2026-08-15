@@ -352,12 +352,13 @@ show_post_install_menu() {
     dialog --clear \
         --backtitle "🐧 DebMenux — Post-Instalación" \
         --title " ⚙️ Optimización Post-Instalación " \
-        --menu "\nConfigura y optimiza tu servidor:" 16 60 6 \
+        --menu "\nConfigura y optimiza tu servidor:" 18 60 7 \
         1 "🔌 Automontaje USB (instalar/configurar)" \
-        2 "📊 Estado del Automontaje USB" \
-        3 "⏏️  Desinstalar Automontaje USB" \
-        4 "🐳 Instalar Docker" \
-        5 "🐧 Optimizar Debian (swap, sysctl, zram)" \
+        2 "🔧 Editar configuración USB (sin reinstalar)" \
+        3 "📊 Estado del Automontaje USB" \
+        4 "⏏️  Desinstalar Automontaje USB" \
+        5 "🐳 Instalar Docker" \
+        6 "🐧 Optimizar Debian (swap, sysctl, zram)" \
         0 "↩️  Volver al Menú Principal" 2>"$TEMP_FILE"
 
     local exit_status=$?
@@ -380,7 +381,7 @@ show_post_install_menu() {
         2)
             clear
             source "${DEBMENUX_SCRIPTS}/post-install/usb-automount.sh"
-            show_status
+            edit_config
             echo -e "\n${TAB}Presiona ENTER para continuar..."
             read -r
             show_post_install_menu
@@ -388,13 +389,21 @@ show_post_install_menu() {
         3)
             clear
             source "${DEBMENUX_SCRIPTS}/post-install/usb-automount.sh"
+            show_status
+            echo -e "\n${TAB}Presiona ENTER para continuar..."
+            read -r
+            show_post_install_menu
+            ;;
+        4)
+            clear
+            source "${DEBMENUX_SCRIPTS}/post-install/usb-automount.sh"
             uninstall_service
             echo -e "\n${TAB}Presiona ENTER para continuar..."
             read -r
             show_post_install_menu
             ;;
-        4) show_placeholder "🐳 Instalar Docker" ; show_post_install_menu ;;
-        5) show_placeholder "🐧 Optimizar Debian" ; show_post_install_menu ;;
+        5) show_placeholder "🐳 Instalar Docker" ; show_post_install_menu ;;
+        6) show_placeholder "🐧 Optimizar Debian" ; show_post_install_menu ;;
         0) return ;;
     esac
 }
