@@ -284,3 +284,31 @@ En `$dkco/homepage/config/services.yaml`, agregar:
 - usb-api SÍ necesita acceso al host (recomendado: systemd nativo, no Docker)
 - `ntfy_send()` debe existir en AMBOS repos (lib/ de cada uno)
 - La SKILL tiene regla de "consultar guía antes de modificar" — actualizar con ntfy
+
+
+
+---
+
+## Caso de uso adicional: Alarma + Cámara → ntfy
+
+ntfy soporta **imágenes adjuntas** (header `Attach:` con URL o `-T` con archivo).
+Esto permite que Home Assistant envíe snapshots de cámara como push notifications
+al browser (Windows) y app (Android) cuando se activa la alarma.
+
+Flujo: HA automation → camera.snapshot → curl -T imagen → ntfy:8090/alarma → push con foto
+
+Detalles completos en: `/nas-dotfiles/_drafts/PLAN-ntfy-usb-api.md` (sección final)
+
+### Implicación para el servicio ntfy
+
+El compose de ntfy necesita suficiente storage para cache de attachments:
+- Agregar volumen `./data/attachments:/var/cache/ntfy/attachments`
+- Config `server.yml`: `attachment-cache-dir: /var/cache/ntfy/attachments`
+- Config `server.yml`: `attachment-total-size-limit: 1G`
+- Config `server.yml`: `attachment-file-size-limit: 10M`
+
+### Topic adicional
+
+| Topic | Prioridad | Uso |
+|-------|-----------|-----|
+| `alarma` | urgent | HA envía snapshot de cámara al detectar movimiento/intrusión |
