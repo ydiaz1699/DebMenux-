@@ -111,8 +111,8 @@
       "port": 8123,
       "source_url": "https://www.home-assistant.io/",
       "github_url": "https://github.com/home-assistant/core",
-      "resources": { "cpu": "2", "memory": "1G" },
-      "networks": ["iot_net"],
+      "resources": { "cpu": "2", "memory": "2G" },
+      "networks": [],
       "tags": ["domótica", "smart-home", "zigbee", "zwave"]
     },
     {
