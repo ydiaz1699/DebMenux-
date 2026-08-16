@@ -9,22 +9,23 @@ Funciona standalone, pero si detecta `nas-dotfiles` registra servicios al catál
 /debmenux/
 ├── menu                    ← Entry point (debmenu)
 ├── install.sh              ← Instalador one-liner
+├── AGENTS.md               ← Este archivo (contexto para AI agents)
 ├── lib/
 │   ├── utils.sh            ← Colores, spinners, msg_info/ok/error
 │   ├── docker.sh           ← Helpers Docker (ensure_network, svc_status)
-│   ├── integration.sh      ← Registro en catálogo nas-dotfiles (opcional)
-│   └── notifications.sh    ← ntfy_send() + wrappers
+│   ├── integration.sh      ← Registro en catálogo + guía + ntfy (cascada)
+│   └── notifications.sh    ← ntfy_send() + wrappers (usb, docker, backup)
 ├── scripts/
 │   ├── services/           ← Un .sh por servicio instalable
 │   │   ├── _template.sh
 │   │   ├── adguard.sh
 │   │   ├── emqx.sh
-│   │   ├── ntfy.sh
-│   │   └── usb-api.sh
+│   │   ├── ntfy.sh         ← Servidor notificaciones push (Docker, :8090)
+│   │   └── usb-api.sh      ← API REST USBs (systemd nativo, :8091)
 │   ├── menus/              ← TUI interactivo
 │   └── post-install/       ← USB automount, tuning
 ├── templates/
-│   └── usb-automount/      ← Scripts + config de automontaje
+│   └── usb-automount/      ← Scripts + config (monta con LABEL)
 ├── services.json           ← Catálogo de servicios disponibles
 ├── lang/                   ← i18n (es.json, en.json)
 └── version.txt
@@ -71,12 +72,15 @@ DOTFILES_DIR=/nas-dotfiles
 DOCKER_DIR=/docker
 ```
 
-Entonces `register_to_catalog()` genera automáticamente:
-- `agent/catalog/services/<svc>/ficha.md`
-- `agent/catalog/services/<svc>/compose.yml`
-- `agent/catalog/services/<svc>/.env.example`
-- `docs/services/<svc>-guide.md` (placeholder)
-- Notificación ntfy (topic: docker)
+Entonces `register_to_catalog()` genera automáticamente en cascada:
+- `agent/catalog/services/<svc>/ficha.md` — metadatos del servicio
+- `agent/catalog/services/<svc>/compose.yml` — copia del compose
+- `agent/catalog/services/<svc>/.env.example` — secretos sanitizados (__pega_aqui__)
+- `docs/services/<svc>-guide.md` — guía placeholder (completar manualmente)
+- Notificación ntfy (topic: docker) — "Servicio X registrado"
+
+**Pipeline inverso:** `svc catalog-sync` en nas-dotfiles también genera
+scripts placeholder en `/debmenux/scripts/services/` si no existen.
 
 ## Notificaciones (ntfy)
 
@@ -89,9 +93,12 @@ ntfy_send "topic" "título" "mensaje" "prioridad" "tags"
 ## USB Automount
 
 - Script: `templates/usb-automount/usb-automount.sh`
-- Monta con LABEL del filesystem (o `usb-<dev>` si no tiene)
-- Notifica via ntfy al montar/desmontar
-- Config: `/etc/usb-automount.conf`
+- Monta con **LABEL** del filesystem (ej: `/NAS/USB/MI_PENDRIVE`)
+- Fallback si no hay label: `/NAS/USB/usb-<dev>` (ej: `usb-sdb1`)
+- Notifica via ntfy al montar/desmontar/desconexión insegura
+- Config: `/etc/usb-automount.conf` (ENABLE_NOTIFICATIONS, NTFY_URL, MOUNT_BASE)
+- Cleanup: `usb-automount.sh --cleanup` (o timer automático cada hora)
+- Mountpoint fantasma (device desconectado bruscamente): `umount -l <path> && rmdir <path>`
 
 ## Testing
 
