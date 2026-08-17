@@ -5,10 +5,10 @@
 # Fuente: https://filebrowser.org/
 # GitHub: https://github.com/filebrowser/filebrowser
 # Descripción: Explorador de archivos web para el NAS.
-#              Permite navegar, subir, descargar y compartir
-#              archivos desde cualquier dispositivo en la LAN.
-#              Muestra USBs automontados en tiempo real (:rshared).
-# Licencia: Apache 2.0
+#              Permite navegar, subir, descargar y gestionar
+#              archivos desde el navegador. Monta /NAS con
+#              :rshared para ver USBs hot-plug automáticamente.
+# Licencia: Apache-2.0
 # ==========================================================
 
 # ==============================================================================
@@ -17,7 +17,7 @@
 
 APP="File Browser"
 APP_ID="filebrowser"
-CATEGORY="storage"
+CATEGORY="archivos"
 IMAGE="filebrowser/filebrowser:latest"
 PORT_WEB="${PORT_WEB:-8085}"
 
@@ -25,7 +25,7 @@ PORT_WEB="${PORT_WEB:-8085}"
 var_cpu="${var_cpu:-0.5}"
 var_ram="${var_ram:-256M}"
 
-# Redes (usa bridge default)
+# Redes — no necesita red personalizada (bridge default)
 NETWORKS=()
 
 # ==============================================================================
@@ -40,27 +40,26 @@ install_service() {
     mkdir -p "${svc_dir}/config"
     msg_ok "Directorios creados 📁"
 
-    # ── Paso 2: Verificar que /NAS existe ─────────────────────
+    # ── Paso 2: Verificar mount base /NAS ─────────────────────
     if [[ ! -d "/NAS" ]]; then
-        msg_warn "/NAS no existe — creando..."
-        mkdir -p /NAS/USB
-        msg_ok "/NAS y /NAS/USB creados"
+        msg_warn "/NAS no existe — creando"
+        mkdir -p /NAS
     fi
 
     # ── Paso 3: Generar archivo .env ──────────────────────────
     msg_info "Generando .env"
     local server_ip
     server_ip=$(get_server_ip)
+    local fb_user="admin"
     local fb_pass
     fb_pass=$(generate_password)
 
     cat > "${svc_dir}/.env" <<EOF
 # File Browser — Variables de entorno
 # Generado por DebMenux el $(date -u +"%Y-%m-%d")
-SERVER_IP=${server_ip}
 
-# Credenciales para el widget de Homepage
-FILEBROWSER_USER=admin
+# Credenciales para widget de Homepage
+FILEBROWSER_USER=${fb_user}
 FILEBROWSER_PASSWORD=${fb_pass}
 EOF
     secure_env "${svc_dir}/.env"
@@ -73,10 +72,11 @@ EOF
 services:
   filebrowser:
     image: ${IMAGE}
-    container_name: filebrowser
+    container_name: ${APP_ID}
     restart: unless-stopped
     user: "0:0"
     env_file:
+      - ../.env
       - .env
     ports:
       - "${PORT_WEB}:80"
@@ -94,9 +94,6 @@ services:
         limits:
           cpus: '${var_cpu}'
           memory: ${var_ram}
-        reservations:
-          cpus: '0.1'
-          memory: 64M
     security_opt:
       - no-new-privileges:true
     healthcheck:
@@ -123,34 +120,23 @@ EOF
     docker compose -f "${svc_dir}/compose.yml" up -d
     msg_ok "${APP} iniciado 🟢"
 
-    # ── Paso 6: Esperar y verificar ───────────────────────────
-    sleep 4
-    if curl -s --max-time 5 "http://localhost:${PORT_WEB}/health" >/dev/null 2>&1; then
-        msg_ok "Servicio accesible ✅"
-    else
-        msg_warn "Puede estar cargando — esperar unos segundos"
-    fi
-
-    # ── Paso 7: Mostrar info de acceso ────────────────────────
+    # ── Paso 6: Esperar a que arranque y mostrar info ─────────
+    sleep 3
     local server_ip
     server_ip=$(get_server_ip)
 
     echo -e ""
     msg_success "${APP} instalado exitosamente! 📂"
-    echo -e "${TAB}${BOLD}🌐 Web UI:${CL}      ${BL}http://${server_ip}:${PORT_WEB}${CL}"
-    echo -e "${TAB}${BOLD}👤 Usuario:${CL}     admin"
-    echo -e "${TAB}${BOLD}🔑 Password:${CL}    admin (¡CAMBIAR en primer login!)"
+    echo -e "${TAB}${BOLD}🌐 Acceso:${CL}       ${BL}http://${server_ip}:${PORT_WEB}${CL}"
+    echo -e "${TAB}${BOLD}👤 Usuario:${CL}      admin"
+    echo -e "${TAB}${BOLD}🔑 Contraseña:${CL}   admin  ${DIM}(cambiar inmediatamente en Settings)${CL}"
     echo -e ""
-    echo -e "${TAB}${DIM}• Corre como root (user 0:0) para acceso completo a /NAS${CL}"
-    echo -e "${TAB}${DIM}• Mount :rshared — USBs aparecen automáticamente sin recrear${CL}"
-    echo -e "${TAB}${DIM}• Archivos servidos desde: /NAS → /srv (dentro del contenedor)${CL}"
-    echo -e "${TAB}${DIM}• Config/DB en: ${svc_dir}/config/${CL}"
-    echo -e ""
-    echo -e "${TAB}${YWB}⚠️  El password del widget Homepage es diferente al de la web UI${CL}"
-    echo -e "${TAB}${YWB}   Widget: ver ${svc_dir}/.env | Web UI: admin/admin (cambiar!)${CL}"
+    echo -e "${TAB}${DIM}Nota: El login inicial es admin/admin.${CL}"
+    echo -e "${TAB}${DIM}El .env guarda las credenciales para el widget de Homepage.${CL}"
+    echo -e "${TAB}${DIM}Los USBs montados en /NAS/USB/ aparecen automáticamente (:rshared).${CL}"
     echo -e ""
 
-    # ── Registrar en catálogo externo
+    # ── Paso 7: Registrar en catálogo externo
     register_to_catalog
 }
 
