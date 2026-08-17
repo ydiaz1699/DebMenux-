@@ -35,7 +35,7 @@
       "description": "Gestor de archivos web con compartición",
       "category": "storage",
       "image": "filebrowser/filebrowser:latest",
-      "port": 8080,
+      "port": 8085,
       "source_url": "https://filebrowser.org/",
       "github_url": "https://github.com/filebrowser/filebrowser",
       "resources": { "cpu": "0.5", "memory": "256M" },
