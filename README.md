@@ -61,13 +61,15 @@ debmenu help
 |----------|-----------|-------------|
 | **AdGuard Home** | 🌐 Red | Bloqueador de anuncios/rastreadores DNS |
 | **EMQX** | 🏠 IoT | Broker MQTT de alto rendimiento |
+| **ESPHome** | 🏠 IoT | Firmware para dispositivos ESP |
+| **Home Assistant** | 🏠 IoT | Automatización del hogar |
 | **File Browser** | 💾 Almacenamiento | Gestor de archivos web |
 | **Portainer CE** | 🔧 Gestión | UI visual para Docker |
 | **Uptime Kuma** | 📊 Monitoreo | Monitoreo de uptime |
+| **ntfy** | 📊 Monitoreo | Notificaciones push self-hosted |
+| **USB API** | 🔧 Gestión | API REST para listar/desmontar USBs (systemd nativo) |
 | **Nginx Proxy Manager** | 🌐 Red | Proxy reverso con SSL |
-| **ESPHome** | 🏠 IoT | Firmware para dispositivos ESP |
 | **Jellyfin** | 🎬 Medios | Sistema de streaming libre |
-| **Home Assistant** | 🏠 IoT | Automatización del hogar |
 | **Vaultwarden** | 🔒 Seguridad | Gestor de contraseñas |
 
 Se agregan más servicios regularmente. Ver [services.json](services.json) para el catálogo completo.
@@ -81,7 +83,8 @@ Se agregan más servicios regularmente. Ver [services.json](services.json) para 
 ├── lib/
 │   ├── utils.sh                 ← Colores, spinners, mensajes con emojis
 │   ├── docker.sh                ← Helpers de ciclo de vida Docker Compose
-│   └── integration.sh           ← Integración con repos externos (opcional)
+│   ├── integration.sh           ← Integración con nas-dotfiles (cascada auto-docs)
+│   └── notifications.sh         ← ntfy_send() + wrappers (USB, Docker, backup)
 ├── scripts/
 │   ├── menus/
 │   │   ├── main_menu.sh         ← Menú TUI principal (dialog)
@@ -90,12 +93,18 @@ Se agregan más servicios regularmente. Ver [services.json](services.json) para 
 │   │   ├── _template.sh         ← Plantilla para nuevos servicios
 │   │   ├── adguard.sh
 │   │   ├── emqx.sh
+│   │   ├── homeassistant.sh
+│   │   ├── ntfy.sh
+│   │   ├── usb-api.sh
 │   │   └── ...
-│   ├── post-install/            ← Scripts de optimización del host
+│   ├── post-install/            ← USB automount, tuning
 │   └── utilities/               ← Utilidades del sistema
+├── templates/
+│   └── usb-automount/           ← Script + config (monta con LABEL, notifica ntfy)
 ├── lang/                        ← Archivos de traducción (es, en)
 ├── services.json                ← Catálogo de servicios
 ├── config.json                  ← Configuración del usuario
+├── AGENTS.md                    ← Contexto para AI coding agents
 └── version.txt
 ```
 
@@ -112,9 +121,12 @@ cp ~/nas-dotfiles/.config/debmenux.conf.example ~/.config/debmenux/debmenux.conf
 ```
 
 Con la integración habilitada:
-- 📋 Cada servicio instalado se registra automáticamente en el catálogo
+- 📋 Cada servicio instalado se registra automáticamente en el catálogo (ficha + compose + .env.example)
+- 📝 Se genera guía placeholder en `docs/services/<svc>-guide.md`
+- 🔔 Se envía notificación ntfy al completar (`topic: docker`)
 - 🌐 Las variables globales (SERVER_IP, TZ) se heredan del .env compartido
 - 📁 Las rutas se leen de la configuración (sin hardcodear)
+- 🔄 Pipeline inverso: `svc catalog-sync` en nas-dotfiles genera scripts DebMenux faltantes
 
 ---
 
