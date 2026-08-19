@@ -155,7 +155,10 @@ services:
     ports:
       - "${PORT_WEB}:3000"
     volumes:
-      - ./data:/home/node/.flowise
+      - type: bind
+        source: ./data
+        target: /home/node/.flowise
+        read_only: false
     networks:
       - db_net
     healthcheck:
