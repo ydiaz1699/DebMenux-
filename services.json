@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "last_updated": "2026-08-14",
+  "last_updated": "2026-08-17",
   "services": [
     {
       "id": "adguard",
@@ -141,6 +141,21 @@
       "tags": ["notificaciones", "push", "alertas", "android", "pwa", "pub-sub"]
     },
     {
+      "id": "flowise",
+      "name": "Flowise",
+      "description": "Constructor visual de agentes y flujos LLM conectado a PostgreSQL",
+      "category": "development",
+      "image": "flowiseai/flowise:latest",
+      "port": 8100,
+      "source_url": "https://flowiseai.com/",
+      "github_url": "https://github.com/FlowiseAI/Flowise",
+      "resources": { "cpu": "1", "memory": "1G" },
+      "networks": ["db_net"],
+      "needs_db": true,
+      "database": "flowise_db",
+      "tags": ["ia", "llm", "agentes", "langchain", "postgresql", "visual"]
+    },
+    {
       "id": "usb-api",
       "name": "USB API",
       "description": "Mini API REST para listar y desmontar USBs desde web",
@@ -160,6 +175,7 @@
     {"id": "monitoring", "name": "📊 Monitoreo y Alertas", "icon": "📊"},
     {"id": "media", "name": "🎬 Medios y Streaming", "icon": "🎬"},
     {"id": "security", "name": "🔒 Seguridad y Auth", "icon": "🔒"},
-    {"id": "database", "name": "🗄️ Bases de Datos", "icon": "🗄️"}
+    {"id": "database", "name": "🗄️ Bases de Datos", "icon": "🗄️"},
+    {"id": "development", "name": "🧠 IA y Desarrollo", "icon": "🧠"}
   ]
 }

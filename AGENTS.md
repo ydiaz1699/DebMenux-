@@ -20,6 +20,7 @@ Funciona standalone, pero si detecta `nas-dotfiles` registra servicios al catál
 │   │   ├── _template.sh
 │   │   ├── adguard.sh
 │   │   ├── emqx.sh
+│   │   ├── flowise.sh
 │   │   ├── ntfy.sh         ← Servidor notificaciones push (Docker, :8090)
 │   │   └── usb-api.sh      ← API REST USBs (systemd nativo, :8091)
 │   ├── menus/              ← TUI interactivo

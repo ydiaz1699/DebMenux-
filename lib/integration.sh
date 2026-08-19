@@ -194,6 +194,13 @@ register_to_catalog() {
 _generate_ficha() {
     local target_dir="$1"
 
+    # No sobrescribir una ficha manual o corregida: conserva conocimiento operativo
+    # específico que no puede regenerarse de forma segura desde el script.
+    if [[ -f "${target_dir}/ficha.md" ]]; then
+        msg_info "Ficha existente conservada para ${APP_ID}"
+        return 0
+    fi
+
     local port_main="${PORT_WEB:-${PORT_MQTT:-${PORT_ADMIN:-0}}}"
 
     local networks_yaml=""
@@ -268,6 +275,11 @@ _generate_env_example() {
     local svc_dir="$2"
 
     if [[ ! -f "${svc_dir}/.env" ]]; then
+        return 0
+    fi
+
+    if [[ -f "${target_dir}/.env.example" ]]; then
+        msg_info ".env.example existente conservado para ${APP_ID}"
         return 0
     fi
 
