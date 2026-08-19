@@ -170,9 +170,12 @@ register_to_catalog() {
     # ── Generar ficha.md ──────────────────────────────────────
     _generate_ficha "$target_dir"
 
-    # ── Copiar compose.yml ────────────────────────────────────
+    # ── Copiar compose.yml adaptando rutas relativas del catálogo ────────
     if [[ -f "${svc_dir}/compose.yml" ]]; then
-        cp "${svc_dir}/compose.yml" "${target_dir}/compose.yml"
+        # El compose desplegado usa ../_common.yml; el catálogo necesita ../../.
+        sed -E \
+            's#^([[:space:]]*file:[[:space:]]*)\.\./_common\.yml([[:space:]]*)$#\1../../_common.yml\2#' \
+            "${svc_dir}/compose.yml" > "${target_dir}/compose.yml"
     fi
 
     # ── Generar .env.example (secretos reemplazados) ──────────
