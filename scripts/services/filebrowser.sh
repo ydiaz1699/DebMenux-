@@ -81,8 +81,16 @@ services:
     ports:
       - "${PORT_WEB}:80"
     volumes:
-      - ./config:/config
-      - /NAS:/srv:rshared
+      - type: bind
+        source: ./config
+        target: /config
+        read_only: false
+      - type: bind
+        source: /NAS
+        target: /srv
+        read_only: false
+        bind:
+          propagation: rshared
     command: >
       --database /config/database.db
       --root /srv
