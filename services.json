@@ -1,6 +1,6 @@
 {
   "version": "0.1.0",
-  "last_updated": "2026-08-17",
+  "last_updated": "2026-08-21",
   "services": [
     {
       "id": "adguard",
@@ -28,6 +28,19 @@
       "resources": { "cpu": "1", "memory": "1G" },
       "networks": ["iot_net"],
       "tags": ["mqtt", "iot", "broker", "websocket", "domótica"]
+    },
+    {
+      "id": "iobroker",
+      "name": "ioBroker",
+      "description": "Plataforma de automatización IoT y domótica con adapters extensibles",
+      "category": "iot",
+      "image": "buanet/iobroker:v11.1.0",
+      "port": 8181,
+      "source_url": "https://hub.docker.com/r/buanet/iobroker",
+      "github_url": "https://github.com/buanet/ioBroker.docker",
+      "resources": { "cpu": "1", "memory": "1G" },
+      "networks": ["iot_net"],
+      "tags": ["iot", "domótica", "automatización", "mqtt", "adapters"]
     },
     {
       "id": "filebrowser",
