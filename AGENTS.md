@@ -20,6 +20,7 @@ Funciona standalone, pero si detecta `nas-dotfiles` registra servicios al catál
 │   │   ├── _template.sh
 │   │   ├── adguard.sh
 │   │   ├── emqx.sh
+│   │   ├── iobroker.sh
 │   │   ├── flowise.sh
 │   │   ├── ntfy.sh         ← Servidor notificaciones push (Docker, :8090)
 │   │   └── usb-api.sh      ← API REST USBs (systemd nativo, :8091)
@@ -62,7 +63,8 @@ debmenu status             # Estado de servicios instalados
 - `generate_password` para secretos aleatorios
 - El compose se llama `compose.yml` (nunca docker-compose.yml)
 - Puertos en rango 8000-8999 para apps web
-- `security_opt: [no-new-privileges:true]` y `cap_drop: [ALL]` obligatorios
+- `security_opt: [no-new-privileges:true]` obligatorio
+- `cap_drop: [ALL]` por defecto; servicios que instalan adapters o dependencias en runtime pueden omitirlo si la excepción queda documentada (ioBroker y Node-RED)
 
 ## Integración con nas-dotfiles
 

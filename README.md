@@ -61,6 +61,7 @@ debmenu help
 |----------|-----------|-------------|
 | **AdGuard Home** | 🌐 Red | Bloqueador de anuncios/rastreadores DNS |
 | **EMQX** | 🏠 IoT | Broker MQTT de alto rendimiento |
+| **ioBroker** | 🏠 IoT | Automatización IoT y domótica |
 | **ESPHome** | 🏠 IoT | Firmware para dispositivos ESP |
 | **Flowise** | 🧠 Desarrollo | Constructor visual de agentes y flujos LLM |
 | **Home Assistant** | 🏠 IoT | Automatización del hogar |
@@ -94,6 +95,7 @@ Se agregan más servicios regularmente. Ver [services.json](services.json) para 
 │   │   ├── _template.sh         ← Plantilla para nuevos servicios
 │   │   ├── adguard.sh
 │   │   ├── emqx.sh
+│   │   ├── iobroker.sh
 │   │   ├── flowise.sh
 │   │   ├── homeassistant.sh
 │   │   ├── ntfy.sh
