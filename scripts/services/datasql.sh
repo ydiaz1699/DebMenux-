@@ -89,6 +89,10 @@ services:
     env_file:
       - ../.env
       - .env
+    # Excepción host-only para Home Assistant con network_mode: host.
+    # Nunca publicar PostgreSQL en la LAN.
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_DB: \${POSTGRES_DB}
       POSTGRES_USER: \${POSTGRES_USER}
@@ -222,7 +226,7 @@ EOF
     echo -e "${TAB}${BOLD}📧 Email:${CL}       admin@local.lan"
     echo -e "${TAB}${BOLD}🔑 Password:${CL}    (ver ${svc_dir}/.env)"
     echo -e ""
-    echo -e "${TAB}${DIM}PostgreSQL: interno (solo via db_net, no expuesto al host)${CL}"
+    echo -e "${TAB}${DIM}PostgreSQL: solo loopback para Home Assistant (127.0.0.1:5432), no expuesto a la LAN${CL}"
     echo -e "${TAB}${DIM}Redis: interno (solo via db_net, no expuesto al host)${CL}"
     echo -e "${TAB}${DIM}Otros servicios se conectan via red 'db_net'${CL}"
     echo -e ""

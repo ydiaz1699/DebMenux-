@@ -114,7 +114,7 @@ python3 -c "import json; json.load(open('services.json'))"
 ## Reglas estrictas
 
 - NUNCA crear archivos fuera de `$DOCKER_DIR/<svc>/`
-- NUNCA exponer puertos de bases de datos al host
+- NUNCA exponer puertos de bases de datos a la LAN; la única excepción permitida es PostgreSQL en `127.0.0.1:5432:5432` para Home Assistant con `network_mode: host`
 - SIEMPRE llamar `register_to_catalog` al final de install
 - SIEMPRE agregar healthcheck en el compose
 - SIEMPRE usar labels `homepage.*` para Homepage (auto-descubrimiento)
